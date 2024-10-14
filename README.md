@@ -1,4 +1,4 @@
-# pear2pear
+# peer2peer
 Création d'un réseau peer2peer
 
 Objectif fixé par le prof :
