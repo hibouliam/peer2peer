@@ -1,5 +1,5 @@
 # pear2pear
-Création d'un réseau pear2pear
+Création d'un réseau peer2peer
 
 Objectif fixé par le prof :
 Ce projet vise à développer un petit réseau peer-to-peer pour le partage d'images, de documents et d'autres fichiers. L’objectif est de permettre aux utilisateurs de partager des fichiers directement entre eux de manière sécurisée.
