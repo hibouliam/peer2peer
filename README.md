@@ -11,9 +11,9 @@ L’application livrée devra comporter les fonctionnalités suivantes :
 - Télécharger un fichier
 
 Options a ajouter pour un projet complet :
--Permettre d'envoyer/demander un fichier à une personne cible
--faire une interface par flutter PC/IOS/android
--Chercher a publier et herberger le site eventuellement (au moins le site web)
+- Permettre d'envoyer/demander un fichier à une personne cible
+- faire une interface par flutter PC/IOS/android
+- Chercher a publier et herberger le site eventuellement (au moins le site web)
 
 ## Les grandes étapes
 ### 1-identifier des pairs sur le réseau 
