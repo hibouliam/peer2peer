@@ -1,3 +1,16 @@
+#Utilisation du code 
+faire un pip install -r requirements.txt
+
+#Lancer le serveur
+python3 server.py
+
+#Lancer le client
+python3 client.py
+
+
+
+
+
 # peer2peer
 Création d'un réseau peer2peer
 
