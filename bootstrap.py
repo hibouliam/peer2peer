@@ -2,8 +2,8 @@ import socket
 import threading
 import json
 
-HOST = '0.0.0.0'  # Adresse du serveur bootstrap
-PORT = 5010       # Port d'écoute du bootstrap
+HOST = '10.4.253.208'  # Adresse du serveur bootstrap
+PORT = 5001      # Port d'écoute du bootstrap
 
 active_peers = []     # Liste des pairs actifs
 
@@ -22,15 +22,16 @@ def process_peer_connection(conn, addr):
         action = conn.recv(1024).decode('utf-8').strip()
         
         if action == 'JOIN':
-            print(f"New connected peer information : {addr}")
+            print(f"New connected peer information : {addr}") # Attribution automatiquement un port source temporaire et unique pour cette connexion
             conn.sendall("Send your listening port".encode('utf-8'))  # Demande du port d'écoute
             port_data = conn.recv(1024).decode('utf-8').strip()  # Réception du port
             print(f"Peer listening port : {port_data}")
             
             new_peer = (addr[0], int(port_data))
             if new_peer not in active_peers:
-                active_peers.append(new_peer)
+                active_peers.append(new_peer) # Ajout du pair à la liste des pairs actifs
                 print(f"Pair ajouté : {new_peer}")
+                print("Liste des pairs actifs :", active_peers)
             
             conn.sendall(json.dumps(active_peers).encode('utf-8'))  # Envoi de la liste des pairs actifs
 
@@ -43,9 +44,9 @@ def process_peer_connection(conn, addr):
             
             peer_to_remove = (addr[0], int(port_data))
             if peer_to_remove in active_peers:
-                active_peers.remove(peer_to_remove)
+                active_peers.remove(peer_to_remove) # Suppresion du pair de la liste des pairs actifs
                 print(f"Pair supprimé : {peer_to_remove}")
-                conn.sendall("Successfully removed from network".encode('utf-8'))
+                conn.sendall("Successfully removed from network".encode('utf-8')) # Envoi du message au pair
                 print("Liste des pairs actifs :", active_peers)
             else:
                 print(f"Pair non trouvé : {peer_to_remove}")

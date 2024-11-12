@@ -33,8 +33,8 @@ class DHTNode:
 
     def add_file(self, filename, content):
         """Ajoute un fichier au nœud et le partage dans le réseau."""
-        file_key = generate_key(filename)
-        self.files[file_key] = content
+        file_key = generate_key(filename) # Application de la fonction de hachage sur le nom du fichier pour avoir un identifiant unique
+        self.files[file_key] = content # Ajout du contenu au dictionnaire files
         print(f"Fichier ajouté localement : {filename} (clé: {file_key})")
 
 
@@ -52,8 +52,9 @@ class DHTNode:
         # Une fois qu'un nœud est trouvé, on télécharge le fichier depuis ce nœud
         print(f"Fichier {file_key} trouvé à l'adresse {address}. Tentative de téléchargement...")
         try:
+            # Création d'un objet socket pour la communication réseau.
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-                sock.connect(address)
+                sock.connect(address) # Connection au noeud qui détient le fichier
                 sock.send(f"DOWNLOAD {file_key}".encode())  # Envoie une requête pour télécharger le fichier
                 
                 # Attente de la réponse du nœud distant
@@ -75,8 +76,9 @@ class DHTNode:
     def send_file(self, address, file_key):
         """Envoie un fichier à un nœud distant lorsqu'il en fait la demande."""
         try:
+            # Création d'un objet socket pour la communication réseau.
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-                sock.connect(address)
+                sock.connect(address) # Connexion au noeud distant
                 # Envoie du fichier sous forme de réponse
                 if file_key in self.files:
                     content = self.files[file_key]
@@ -93,7 +95,7 @@ class DHTNode:
     def request_file(self, target_node_address, file_key):
         """Demande un fichier à un nœud cible en envoyant la commande DOWNLOAD."""
         try:
-            # Connexion au nœud cible
+            # Création d'un objet socket pour la communication réseau.
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
                 sock.connect(target_node_address)  # Connexion au nœud cible
 
@@ -220,7 +222,7 @@ class DHTNode:
         visited_nodes = set()  # Pour éviter les recherches en boucle
         nodes_to_visit = list(self.routing_table.values())
 
-        while nodes_to_visit:
+        while nodes_to_visit: # tant qu'il reste des nœuds à explorer dans nodes_to_visit
             address = nodes_to_visit.pop(0)
             if address not in visited_nodes:
                 visited_nodes.add(address)
@@ -307,17 +309,17 @@ node2.add_file("document2.txt", "Ceci est le contenu du document 2.")
 node1.routing_table[node2.id] = ("127.0.0.1", 5002)
 
 # # Recherche et téléchargement d'un fichier
-filename = "document2.txt"
+filename = "document3.txt"
 file_key = generate_key(filename)
-# address = node1.search_file(file_key)
+address = node1.search_file(file_key)
 
-# if address:
-#     print(f"Fichier '{filename}' trouvé à l'adresse : {address}")
-#     content = node1.download_file(address, file_key)
-#     if content:
-#         print(f"Contenu du fichier téléchargé : {content}")
-# else:
-#     print(f"Fichier '{filename}' non trouvé dans le réseau")
+if address:
+    print(f"Fichier '{filename}' trouvé à l'adresse : {address}")
+    content = node1.download_file(file_key)
+    if content:
+        print(f"Contenu du fichier téléchargé : {content}")
+else:
+    print(f"Fichier '{filename}' non trouvé dans le réseau")
 
 
 #### Exemple d'utilisation pour search_file
@@ -345,4 +347,8 @@ file_key = generate_key(filename)
 #     print("Le nœud cible n'a pas été trouvé dans la table de routage.")
 
 # Afficher la table de routage de node1
-node1.display_routing_table()
+#node1.display_routing_table()
+
+
+# Faire une fonction menu qui permettent de choisir l'action que le noeud souhaite faire
+# Faire une focntion pour récuperer l'adresse IP et un port libre
