@@ -3,9 +3,9 @@ import threading
 import json
 import sys
 
-BOOTSTRAP_HOST = '0.0.0.0'  # Adresse du serveur bootstrap
-BOOTSTRAP_PORT = 5010         # Port du bootstrap
-PEER_PORT = 7001             # Port d'écoute du pair
+BOOTSTRAP_HOST = '163.5.23.4'  # Adresse du serveur bootstrap
+BOOTSTRAP_PORT = 53173      # Port du bootstrap
+PEER_PORT = 7002             # Port d'écoute du pair
 
 active_peers = []  # Liste des pairs actifs
 
@@ -61,24 +61,25 @@ def bootstrap_interaction(action):
         return
 
     try:
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.connect((BOOTSTRAP_HOST, BOOTSTRAP_PORT))
+        # Création d'un objet socket pour la communication réseau.
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s: # socket.AF_INET : utilisation du protocole IPv4 & socket.SOCK_STREAM : TCP (Transmission Control Protocol)
+            s.connect((BOOTSTRAP_HOST, BOOTSTRAP_PORT)) # Connexion au bootstrap
             s.sendall(action.encode('utf-8'))  # Envoi de l'action ('JOIN' ou 'LEAVE')
 
             if action == "JOIN":
-                response = s.recv(1024).decode('utf-8')
+                response = s.recv(1024).decode('utf-8') # Réception du message envoyé par le bootstrap
                 print(response)  # Afficher le message du serveur bootstrap
                 if response == "Send your listening port":
                     s.sendall(str(PEER_PORT).encode('utf-8'))  # Envoi du port d'écoute du pair
 
                 # Récupérer la liste des pairs actifs
-                response = s.recv(1024).decode('utf-8')
+                response = s.recv(1024).decode('utf-8') # Réception du message envoyé par le bootstrap
                 global active_peers
                 active_peers = json.loads(response)  # Stockage des pairs actifs
                 print("Liste des pairs actifs :", active_peers)
 
             elif action == "LEAVE":
-                response = s.recv(1024).decode('utf-8')
+                response = s.recv(1024).decode('utf-8') # Réception du message envoyé par le bootstrap
                 print(response)  # Afficher le message "Send your port for LEAVE"
                 s.sendall(str(PEER_PORT).encode('utf-8'))  # Envoi du port d'écoute
                 
@@ -96,6 +97,7 @@ def start_peer_server():
     """
     Lance un serveur destiné à accepter/gèrer les connexions entre pairs déjà connectés au réseau
     """
+    # Création d'un objet socket pour la communication réseau.
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     server_socket.bind(('0.0.0.0', PEER_PORT))  # Accepte les connexions de n'importe quelle interface réseau de la machine
