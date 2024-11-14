@@ -10,24 +10,28 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   TextEditingController _searchController = TextEditingController();
-  bool _showDialog = false;
 
+  // Fonction pour ouvrir le modal
   void _showUploadDialog() {
-    setState(() {
-      _showDialog = true;
-    });
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true, // Permet de contrôler la taille du bottomSheet
+      backgroundColor: Colors.transparent, // Fond transparent pour le modal
+      builder: (BuildContext context) {
+        return UploadDialog(onClose: _closeUploadDialog);
+      },
+    );
   }
 
+  // Fonction pour fermer le modal (via la méthode de fermeture fournie dans le widget UploadDialog)
   void _closeUploadDialog() {
-    setState(() {
-      _showDialog = false;
-    });
+    Navigator.pop(context);  // Ferme le modal
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,  // Fond sombre pour le thème dark
+      backgroundColor: Colors.black,
       body: Padding(
         padding: const EdgeInsets.all(20.0),
         child: Column(
@@ -37,12 +41,11 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             SizedBox(height: 20),
             IconButtons(
-              onUploadClick: _showUploadDialog,
+              onUploadClick: _showUploadDialog, // Ouvrir le dialogue lors du clic sur l'icône
             ),
           ],
         ),
       ),
-      bottomSheet: _showDialog ? UploadDialog(onClose: _closeUploadDialog) : null,
     );
   }
 }
