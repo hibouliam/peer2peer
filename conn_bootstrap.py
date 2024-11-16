@@ -3,53 +3,14 @@ import threading
 import json
 import sys
 
-BOOTSTRAP_HOST = '163.5.23.4'  # Adresse du serveur bootstrap
-BOOTSTRAP_PORT = 53173      # Port du bootstrap
-PEER_PORT = 7002             # Port d'écoute du pair
+BOOTSTRAP_HOST = '127.0.0.1'  # Adresse du serveur bootstrap
+BOOTSTRAP_PORT = 5001     # Port du bootstrap
+PEER_PORT = 7001         # Port d'écoute du pair
 
 active_peers = []  # Liste des pairs actifs
 
-# def connect_to_bootstrap():
-#     """
-#     Connexion au serveur Bootstrap coté pair
-#     """
-#     try:
-#         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s: # socket.AF_INET : utilisation du protocole IPv4 & socket.SOCK_STREAM : TCP (Transmission Control Protocol)
-#             s.connect((BOOTSTRAP_HOST, BOOTSTRAP_PORT)) # Connexion avec le serveur bootstrap
-#             s.sendall("JOIN".encode('utf-8'))  # Envoi de la demande d'inscription
-#             response = s.recv(1024).decode('utf-8') # Attente de la réponse du bootstrap
-#             print(response)  # Afficher le message du serveur bootstrap
-#             if response == "Send your listening port":
-#                 s.sendall(str(PEER_PORT).encode('utf-8'))  # Envoie du port d'écoute du pair
-#             response = s.recv(1024).decode('utf-8') # Attente de la réponse du bootstrap
-#             global active_peers
-#             active_peers = json.loads(response)  # Stockage des pairs actifs
-#             print("List of active peers:", active_peers)
-#     except Exception as e:
-#         print(f"Bootstrap connection error : {e}")
 
-
-# def leave_network():
-#     """
-#     Fonction pour quitter proprement le réseau en informant le serveur bootstrap.
-#     """
-#     try:
-#         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-#             s.connect((BOOTSTRAP_HOST, BOOTSTRAP_PORT))
-#             s.sendall("LEAVE".encode('utf-8'))  # Informer le bootstrap du départ
-#             s.sendall(str(PEER_PORT).encode('utf-8'))  # Envoi du port d'écoute du pair pour identification
-#             response = s.recv(1024).decode('utf-8')
-#             if response == "OK":
-#                 print("Vous avez quitté le réseau avec succès.")
-#             else:
-#                 print("Erreur lors de la tentative de quitter le réseau.")
-#     except Exception as e:
-#         print(f"Erreur lors de la déconnexion du réseau : {e}")
-#     finally:
-#         sys.exit()  # Fermer le programme proprement
-
-
-def bootstrap_interaction(action):
+def bootstrap_interaction(action :str) -> None : 
     """
     Fonction unique pour interagir avec le serveur Bootstrap pour se connecter (JOIN) ou quitter le réseau (LEAVE).
 
@@ -130,40 +91,20 @@ def attempt_peer_connections():
     """
     Tentative de connexion à chaque pairs actifs
     """
-    for peer in active_peers:
-        peer_ip, peer_port = peer
+    if len(active_peers) == 1 :    
+        return  # Exit the function if only one peer exists
+    else :
+        peer_ip, peer_port = active_peers[-2]
         try:
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                 s.connect((peer_ip, peer_port)) # connexion au pair
-                s.sendall("Hello new peer!".encode('utf-8'))
-                print(f"Successful connection with the peer {peer}")
+                s.sendall(f"Successful connection with the peer {active_peers[-1]}".encode('utf-8'))
+                print(f"Successful connection with the peer {active_peers[-2]}")
         except Exception as e:
             print(f"Peer connection error {peer_ip}:{peer_port} : {e}")
 
-server_thread = threading.Thread(target=start_peer_server) # Création d'un thread pour gérer la connexion entre 2 pairs avec la fonction start_peer_server
-server_thread.daemon = True
-server_thread.start()
 
 
-# Connecter au bootstrap
-#connect_to_bootstrap()
-#bootstrap_interaction("JOIN")
-
-# Se connecter aux autres pairs du réseau
-attempt_peer_connections()
-
-print("Le pair est maintenant actif et écoute les nouvelles connexions.")
-
-# try : 
-#     while True:
-#         action = input("Tapez 'q' pour quitter le réseau : ")
-#         if action.lower() == 'q':
-#             leave_network()
-# except KeyboardInterrupt:
-#     print("\nInterruption par l'utilisateur. Déconnexion en cours...")
-#     leave_network()
-
-# Tester l'interaction avec le bootstrap
 try:
     while True:
         print("\nActions disponibles :")
@@ -174,6 +115,11 @@ try:
 
         if action == 'j':
             bootstrap_interaction("JOIN")  # Tester l'action JOIN
+            server_thread = threading.Thread(target=start_peer_server) # Création d'un thread pour gérer la connexion entre 2 pairs avec la fonction start_peer_server
+            server_thread.daemon = True
+            server_thread.start()
+            # Se connecter aux autres pairs du réseau
+            attempt_peer_connections()
         elif action == 'q':
             bootstrap_interaction("LEAVE")  # Tester l'action LEAVE
             break  # Sortie de la boucle après avoir quitté le réseau
