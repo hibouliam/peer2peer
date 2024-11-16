@@ -1,15 +1,15 @@
 import socket
-import requests
 
-def get_public_ip():
+
+def get_local_ip() -> str:
     try:
-        # Envoie une requête à un service de récupération de l'IP publique
-        response = requests.get("https://api64.ipify.org?format=json")
-        response.raise_for_status()  # Vérifie les erreurs HTTP
-        ip = response.json()["ip"]
-    except requests.RequestException:
-        ip = "Impossible de récupérer l'adresse IP publique"
-    return ip
+        # Crée une connexion UDP temporaire pour déterminer l'IP locale
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            s.connect(("8.8.8.8", 80))  # Utilise une IP externe pour déterminer l'IP locale
+            local_ip = s.getsockname()[0]
+    except Exception:
+        local_ip = "Impossible de récupérer l'adresse IP locale"
+    return local_ip
 
 def get_free_tcp_port():
     # Crée une socket TCP et demande un port libre
@@ -19,7 +19,6 @@ def get_free_tcp_port():
     return free_port
 
 # Utilisation
-public_ip = get_public_ip()
+local_ip = get_local_ip()
 tcp_port = get_free_tcp_port()
-print(f"Adresse IP publique : {public_ip}")
-print(f"Port TCP libre : {tcp_port}")
+
