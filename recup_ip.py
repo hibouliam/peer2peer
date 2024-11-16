@@ -21,6 +21,3 @@ def get_free_tcp_port():
 # Utilisation
 local_ip = get_local_ip()
 tcp_port = get_free_tcp_port()
-
-print(f"Adresse IP locale : {local_ip}")
-print(f"Port TCP libre : {tcp_port}")
