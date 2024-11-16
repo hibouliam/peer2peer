@@ -2,45 +2,82 @@ import socket
 import threading
 import json
 
-HOST = '0.0.0.0'  # Adresse du serveur bootstrap
-PORT = 5000        # Port d'écoute du bootstrap
+HOST = '127.0.0.1'  # Adresse du serveur bootstrap
+PORT = 5001      # Port d'écoute du bootstrap
 
-peers_list = []     # Liste des pairs actifs
+active_peers = []     # Liste des pairs actifs
 
-def handle_peer(conn, addr):
+
+def process_peer_connection(conn, addr):
     """
-    Gère la connexion d'un pair et envoie la liste des autres pairs.
+    Gestion de la connexion d'un nouveau pair coté Bootstrap, qui l'ajoute à la liste des pairs actifs et envoie 
+    la liste au pair pour qu'il puisse se connecter à eux.
+
+    2 paramètres : 
+    conn : l'objet de connexion qui permet d'envoyer et recevoir des données via le socket.
+    addr : une paire (IP, port) qui représente l'adresse de l'ordinateur connecté   
     """
-    data = conn.recv(1024).decode('utf-8')  # Lecture de la demande d'inscription
-    if data == 'JOIN':
-        print(f"Nouveau pair connecté : {addr}")
-        # Demander au pair d'envoyer son port d'écoute
-        conn.sendall("Send your listening port".encode('utf-8'))
-        port_data = conn.recv(1024).decode('utf-8')  # Recevoir le port d'écoute du pair
-        print(f"Pair a envoyé son port d'écoute : {port_data}")
+    try:
+        # Réception de la commande initiale (JOIN ou LEAVE)
+        action = conn.recv(1024).decode('utf-8').strip()
         
-        # Ajouter le pair à la liste des pairs actifs
-        peers_list.append((addr[0], int(port_data)))
-        
-        # Envoi de la liste des pairs aux autres
-        conn.sendall(json.dumps(peers_list).encode('utf-8'))
-    
-    conn.close()
+        if action == 'JOIN':
+            print(f"New connected peer information : {addr}") # Attribution automatiquement un port source temporaire et unique pour cette connexion
+            conn.sendall("Send your listening port".encode('utf-8'))  # Demande du port d'écoute
+            port_data = conn.recv(1024).decode('utf-8').strip()  # Réception du port
+            print(f"Peer listening port : {port_data}")
+            
+            new_peer = (addr[0], int(port_data))
+            if new_peer not in active_peers:
+                active_peers.append(new_peer) # Ajout du pair à la liste des pairs actifs
+                print(f"Pair ajouté : {new_peer}")
+                print("Liste des pairs actifs :", active_peers)
+            
+            conn.sendall(json.dumps(active_peers).encode('utf-8'))  # Envoi de la liste des pairs actifs
+
+        elif action == 'LEAVE':
+            print(f"Le pair {addr} demande à quitter le réseau.")
+            conn.sendall("Send your port for LEAVE".encode('utf-8'))  # Demande du port pour quitter le réseau
+            
+            port_data = conn.recv(1024).decode('utf-8').strip()  # Réception du port
+            print(f"Port reçu pour LEAVE : {port_data}")
+            
+            peer_to_remove = (addr[0], int(port_data))
+            if peer_to_remove in active_peers:
+                active_peers.remove(peer_to_remove) # Suppresion du pair de la liste des pairs actifs
+                print(f"Pair supprimé : {peer_to_remove}")
+                conn.sendall("Successfully removed from network".encode('utf-8')) # Envoi du message au pair
+                print("Liste des pairs actifs :", active_peers)
+            else:
+                print(f"Pair non trouvé : {peer_to_remove}")
+                conn.sendall("Peer not found in the active list".encode('utf-8'))
+        else:
+            print(f"Commande inconnue reçue : {action}")
+
+    except Exception as e:
+        print(f"Erreur lors du traitement de la connexion avec {addr} : {e}")
+
+    finally:
+        conn.close()  # Fermeture de la connexion
+
+
 
 def start_bootstrap_server():
     """
-    Lance le serveur bootstrap pour accepter les pairs entrants.
+    Activation du serveur Bootstrap pour accepter la connexion de nouveaux pairs au réseau.
     """
-    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    server_socket.bind((HOST, PORT))
-    server_socket.listen(5)
-    print(f"Serveur bootstrap démarré sur {HOST}:{PORT}")
+
+    # Création d'un objet socket pour la communication réseau.
+    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM) # socket.AF_INET : utilisation du protocole IPv4 & socket.SOCK_STREAM : TCP (Transmission Control Protocol)
+    server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1) # Définition des paramètres
+    server_socket.bind((HOST, PORT)) # Associe l'adresse IP (HOST) et le numéro de port (PORT) au socket
+    server_socket.listen(5) # Socket en mode écoute pour les connexions entrantes
+    print(f"Bootstrap server started on {HOST}:{PORT}")
     
     while True:
-        conn, addr = server_socket.accept()
-        thread = threading.Thread(target=handle_peer, args=(conn, addr))
-        thread.start()
+        conn, addr = server_socket.accept() # Accepte et écoute des connexions entrantes 
+        thread = threading.Thread(target=process_peer_connection, args=(conn, addr)) # Création d'un thread pour gérer chaque connexion entrante d'un pair au Bootstrap avec la fonction handle_peer
+        thread.start() # Lance le thread pour traiter la connexion en parallèle.
 
 if __name__ == "__main__":
     start_bootstrap_server()
