@@ -2,7 +2,7 @@ import socket
 import threading
 import json
 
-HOST = '10.4.253.208'  # Adresse du serveur bootstrap
+HOST = '127.0.0.1'  # Adresse du serveur bootstrap
 PORT = 5001      # Port d'écoute du bootstrap
 
 active_peers = []     # Liste des pairs actifs

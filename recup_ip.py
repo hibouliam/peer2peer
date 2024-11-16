@@ -1,7 +1,7 @@
 import socket
-import requests
 
-def get_local_ip():
+
+def get_local_ip() -> str:
     try:
         # Crée une connexion UDP temporaire pour déterminer l'IP locale
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:

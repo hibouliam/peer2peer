@@ -120,6 +120,10 @@ try:
             server_thread.start()
             # Se connecter aux autres pairs du réseau
             attempt_peer_connections()
+            #Reste à faire
+            #Enregistrer l'adresse ip de deux paires (celui a qui il envoie et celui qui recoit le message)
+            #Gerer les déconnexions en envoyant le peer suivant au noeud précédent 
+            #Peut être faire une toute les x secondes pour verifier la connexion
         elif action == 'q':
             bootstrap_interaction("LEAVE")  # Tester l'action LEAVE
             break  # Sortie de la boucle après avoir quitté le réseau
