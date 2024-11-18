@@ -32,8 +32,14 @@ def process_peer_connection(conn, addr):
                 active_peers.append(new_peer) # Ajout du pair à la liste des pairs actifs
                 print(f"Pair ajouté : {new_peer}")
                 print("Liste des pairs actifs :", active_peers)
-            
-            conn.sendall(json.dumps(active_peers).encode('utf-8'))  # Envoi de la liste des pairs actifs
+                if len (active_peers)==1 :
+                    conn.sendall(json.dumps([]).encode('utf-8'))
+                if len(active_peers)==2 :
+                    conn.sendall(json.dumps([active_peers[0]]).encode('utf-8'))
+                if len(active_peers)>=3 :
+                    print("Liste des pairs actif :", active_peers[-2])
+                    conn.sendall(json.dumps([active_peers[0],active_peers[-2]]).encode('utf-8'))
+            #conn.sendall(json.dumps(active_peers).encode('utf-8'))  # Envoi de la liste des pairs actifs
 
         elif action == 'LEAVE':
             print(f"Le pair {addr} demande à quitter le réseau.")
@@ -48,6 +54,7 @@ def process_peer_connection(conn, addr):
                 print(f"Pair supprimé : {peer_to_remove}")
                 conn.sendall("Successfully removed from network".encode('utf-8')) # Envoi du message au pair
                 print("Liste des pairs actifs :", active_peers)
+                
             else:
                 print(f"Pair non trouvé : {peer_to_remove}")
                 conn.sendall("Peer not found in the active list".encode('utf-8'))
