@@ -6,7 +6,7 @@ import sys
 
 BOOTSTRAP_HOST = '127.0.0.1'  # Adresse du serveur bootstrap
 BOOTSTRAP_PORT = 5001     # Port du bootstrap
-PEER_PORT = 7004         # Port d'écoute du pair
+PEER_PORT = 7003         # Port d'écoute du pair
 
 active_peers = []  # Liste des pairs actifs
 
@@ -43,6 +43,7 @@ def bootstrap_interaction(action :str) -> None :
 
             elif action == "LEAVE":
                 response = s.recv(1024).decode('utf-8') # Réception du message envoyé par le bootstrap
+                attempt_peer_connections()
                 print(response)  # Afficher le message "Send your port for LEAVE"
                 s.sendall(str(PEER_PORT).encode('utf-8'))  # Envoi du port d'écoute
                 
@@ -89,8 +90,6 @@ def handle_communication_between_peer(conn):
     finally:
         conn.close() # Fermeture de la connexion
 
-
-
 def attempt_peer_connections():
     """
     Tentative de connexion à chaque pairs actifs
@@ -126,17 +125,23 @@ def add_neighboor_peer(data: str) -> None:
             peer_info_str = peer_info_str.replace("'", '"')
             peer_info = json.loads(peer_info_str)  # Convertit le JSON en liste [IP, PORT]
             peer_info = applatir_données(peer_info)
+            
             if len(active_peers)<=1 :
                 active_peers.append(peer_info[0])
             else :
+                count=0
                 for peer in peer_info :
-                    print(peer)
                     if peer !=['127.0.0.1',PEER_PORT]:
-                        if peer in active_peers and peer  :
-                            active_peers.remove(peer) 
+                        if peer in active_peers  :
+                            if count == 0 :
+                                count +=1 
+                                active_peers.remove(peer) 
+                            else :
+                                print(f"les actives paires {active_peers}")
+                                return 
                         else :
                             active_peers.append(peer) 
-                        print(f"dans le si{active_peers}")
+                        
             print(f"les actives paires sont {active_peers}")
                 
     except Exception as e:
@@ -168,7 +173,7 @@ try:
             #Reste à faire
             #Enregistrer l'adresse ip de deux paires (celui a qui il envoie et celui qui recoit le message)
             #Gerer les déconnexions en envoyant le peer suivant au noeud précédent 
-            #Peut être faire une toute les x secondes pour verifier la connexion
+            #Peut être faire un test toute les x secondes pour verifier la connexion
         elif action == 'q':
             bootstrap_interaction("LEAVE")  # Tester l'action LEAVE
             break  # Sortie de la boucle après avoir quitté le réseau
