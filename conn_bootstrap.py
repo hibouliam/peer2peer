@@ -3,12 +3,15 @@ import socket
 import threading
 import json
 import sys
+from recup_ip import generate_key
+
 
 BOOTSTRAP_HOST = '127.0.0.1'  # Adresse du serveur bootstrap
 BOOTSTRAP_PORT = 5001     # Port du bootstrap
-PEER_PORT = 7003         # Port d'écoute du pair
+PEER_PORT = 7001         # Port d'écoute du pair
 
 active_peers = []  # Liste des pairs actifs
+
 
 
 
@@ -98,11 +101,11 @@ def attempt_peer_connections():
         return  # Exit the function if only one peer exists
     else :
         for peer in active_peers:
-            peer_ip, peer_port = peer
+            peer_ip, peer_port = peer[1:]
             try:
                 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                     s.connect((peer_ip, peer_port)) # connexion au pair
-                    s.sendall(f"Successful connection with the peer {[['127.0.0.1',PEER_PORT],active_peers]}".encode('utf-8'))
+                    s.sendall(f"Successful connection with the peer {[[generate_key(f'127.0.0.1:{PEER_PORT}'),'127.0.0.1',PEER_PORT],active_peers]}".encode('utf-8'))
             except Exception as e:
                 print(f"Peer connection error {peer_ip}:{peer_port} : {e}")
 
@@ -129,9 +132,9 @@ def add_neighboor_peer(data: str) -> None:
             if len(active_peers)<=1 :
                 active_peers.append(peer_info[0])
             else :
-                count=0
+                count=0 #Pour ne pas enlever plus de deux peer
                 for peer in peer_info :
-                    if peer !=['127.0.0.1',PEER_PORT]:
+                    if peer[1:] !=['127.0.0.1',PEER_PORT]:
                         if peer in active_peers  :
                             if count == 0 :
                                 count +=1 
@@ -171,6 +174,17 @@ try:
             # Se connecter aux autres pairs du réseau
             attempt_peer_connections()
             #Reste à faire
+
+
+            #Tester voir si ca fonctionne
+            #Si ca fonctionne faut faire une fonction pour dire qu'il est responsable de la plage de lui à son voisin suivant
+            #Faire deux exceptions : - si ces deux voisins sont plus grands alors il est reponsable de 0 au voisin le plus proche de lui (par exemple si 1 a comme voisin 2 et 5 alors il responsable de 0 à 2 )
+                                   # - si ces deux voisins sont plus petits alors il est reponsable  de lui à +infini (par exemple si 5 a comme voisin 1 et 4 alors il est responable de 5 à +infini)
+            #Et pour l'écriture de la dht je propose soit dictionnaire map (dht={"file1":["127.0.0.1:8000","127.0.0.1:5000"]})  
+            #Ou alors directement dans un fichier json 
+            #Perso je pense que peut importe lequel on utilise on pourra changer facilement pcq ca reste un peu la même chose
+
+            #Ca c'est autre chose
             #Enregistrer l'adresse ip de deux paires (celui a qui il envoie et celui qui recoit le message)
             #Gerer les déconnexions en envoyant le peer suivant au noeud précédent 
             #Peut être faire un test toute les x secondes pour verifier la connexion

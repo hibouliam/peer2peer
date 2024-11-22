@@ -1,7 +1,7 @@
 import hashlib
 
 def generate_key(filename):
-    """Génère une clé unique pour un fichier en utilisant SHA-224."""
+    """Génère une clé unique pour un fichier en utilisant SHA."""
     return hashlib.sha3_512(filename.encode()).hexdigest()
 
 print(generate_key("test.txt"))
