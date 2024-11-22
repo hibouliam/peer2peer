@@ -22,14 +22,14 @@ def process_peer_connection(conn, addr):
     try:
         # Réception de la commande initiale (JOIN ou LEAVE)
         action = conn.recv(1024).decode('utf-8').strip()
-        
+        global active_peers
         if action == 'JOIN':
             print(f"New connected peer information : {addr}") # Attribution automatiquement un port source temporaire et unique pour cette connexion
             conn.sendall("Send your listening port".encode('utf-8'))  # Demande du port d'écoute
             port_data = conn.recv(1024).decode('utf-8').strip()  # Réception du port
             print(f"Peer listening port : {port_data}")
             
-            new_peer = (generate_key(addr[0]),addr[0], int(port_data))
+            new_peer = (generate_key(f'{addr[0]}:{port_data}'),addr[0], int(port_data))
             if new_peer not in active_peers:
                 active_peers.append(new_peer) # Ajout du pair à la liste des pairs actifs
                 active_peers = sorted(active_peers,key=lambda peer: int(peer[0], 16)) # Remet en entier base 16
@@ -57,7 +57,7 @@ def process_peer_connection(conn, addr):
             port_data = conn.recv(1024).decode('utf-8').strip()  # Réception du port
             print(f"Port reçu pour LEAVE : {port_data}")
             
-            peer_to_remove = (generate_key(addr[0]),addr[0], int(port_data))
+            peer_to_remove = (generate_key(f'{addr[0]}:{port_data}'),addr[0], int(port_data))
             if peer_to_remove in active_peers:
                 active_peers.remove(peer_to_remove) # Suppresion du pair de la liste des pairs actifs
                 print(f"Pair supprimé : {peer_to_remove}")
