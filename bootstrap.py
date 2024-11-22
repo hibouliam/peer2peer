@@ -1,6 +1,8 @@
 import socket
 import threading
 import json
+from recup_ip import generate_key
+
 
 HOST = '127.0.0.1'  # Adresse du serveur bootstrap
 PORT = 5001      # Port d'écoute du bootstrap
@@ -27,19 +29,26 @@ def process_peer_connection(conn, addr):
             port_data = conn.recv(1024).decode('utf-8').strip()  # Réception du port
             print(f"Peer listening port : {port_data}")
             
-            new_peer = (addr[0], int(port_data))
+            new_peer = (generate_key(addr[0]),addr[0], int(port_data))
             if new_peer not in active_peers:
                 active_peers.append(new_peer) # Ajout du pair à la liste des pairs actifs
+                active_peers = sorted(active_peers,key=lambda peer: int(peer[0], 16)) # Remet en entier base 16
+                new_peer_index = active_peers.index(new_peer)
                 print(f"Pair ajouté : {new_peer}")
                 print("Liste des pairs actifs :", active_peers)
                 if len (active_peers)==1 :
                     conn.sendall(json.dumps([]).encode('utf-8'))
                 if len(active_peers)==2 :
-                    conn.sendall(json.dumps([active_peers[0]]).encode('utf-8'))
+                    neighbor_index=(new_peer_index+1)%len(active_peers)
+                    neighbor=active_peers[neighbor_index]
+                    conn.sendall(json.dumps([neighbor]).encode('utf-8'))
                 if len(active_peers)>=3 :
-                    print("Liste des pairs actif :", active_peers[-2])
-                    conn.sendall(json.dumps([active_peers[0],active_peers[-2]]).encode('utf-8'))
-            #conn.sendall(json.dumps(active_peers).encode('utf-8'))  # Envoi de la liste des pairs actifs
+                    left_neighbor_index=(new_peer_index-1)%len(active_peers)  #modulo pour retourner a 1
+                    right_neighbor_index=(new_peer_index+1)%len(active_peers)  
+                    left_neighbor=active_peers[left_neighbor_index]
+                    right_neighbor=active_peers[right_neighbor_index]
+                    print("Liste des pairs actif :", left_neighbor,right_neighbor)
+                    conn.sendall(json.dumps([left_neighbor,right_neighbor]).encode('utf-8'))
 
         elif action == 'LEAVE':
             print(f"Le pair {addr} demande à quitter le réseau.")
@@ -48,7 +57,7 @@ def process_peer_connection(conn, addr):
             port_data = conn.recv(1024).decode('utf-8').strip()  # Réception du port
             print(f"Port reçu pour LEAVE : {port_data}")
             
-            peer_to_remove = (addr[0], int(port_data))
+            peer_to_remove = (generate_key(addr[0]),addr[0], int(port_data))
             if peer_to_remove in active_peers:
                 active_peers.remove(peer_to_remove) # Suppresion du pair de la liste des pairs actifs
                 print(f"Pair supprimé : {peer_to_remove}")
