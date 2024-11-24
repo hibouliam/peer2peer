@@ -34,7 +34,7 @@ def process_peer_connection(conn, addr):
                 active_peers.append(new_peer) # Ajout du pair à la liste des pairs actifs
                 active_peers = sorted(active_peers,key=lambda peer: int(peer[0], 16)) # Remet en entier base 16
                 new_peer_index = active_peers.index(new_peer)
-                print(f"Pair ajouté : {new_peer}")
+                
                 print("Liste des pairs actifs :", active_peers)
                 if len (active_peers)==1 :
                     conn.sendall(json.dumps([]).encode('utf-8'))
@@ -47,7 +47,7 @@ def process_peer_connection(conn, addr):
                     right_neighbor_index=(new_peer_index+1)%len(active_peers)  
                     left_neighbor=active_peers[left_neighbor_index]
                     right_neighbor=active_peers[right_neighbor_index]
-                    print("Liste des pairs actif :", left_neighbor,right_neighbor)
+                    print("Pair envoyé :", left_neighbor,right_neighbor)
                     conn.sendall(json.dumps([left_neighbor,right_neighbor]).encode('utf-8'))
 
         elif action == 'LEAVE':
