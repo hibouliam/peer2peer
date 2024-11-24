@@ -36,3 +36,26 @@ Options a ajouter pour un projet complet :
 ### 5-Téléchargement d'un fichier
 ### 6-Sécuriser le tout
 ### 7-Faire une interface user
+
+### Résumé des appels principaux dans l'ordre
+Pour un cycle complet du partage de fichier entre pairs :
+
+#### Initialisation et enregistrement :
+
+- Peer.__init__()
+- register_peer() → (appelant) get_file_list(), self.service.put()
+#### Démarrage des threads de serveur et gestion des fichiers :
+
+- peer_server() via PeerOperations("PeerServer", p)
+- peer_file_handler() via PeerOperations("PeerFileHandler", p)
+#### Requête de recherche et obtention de fichier :
+
+- search_file()
+- obtain()
+#### Réception de requêtes entrantes et transfert de fichier :
+
+- peer_server_listener()
+- peer_server_upload()
+#### Réplication pour la redondance :
+
+- data_resilience()

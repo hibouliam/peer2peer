@@ -25,4 +25,3 @@ def get_free_tcp_port():
 # Utilisation
 local_ip = get_local_ip()
 tcp_port = get_free_tcp_port()
-
