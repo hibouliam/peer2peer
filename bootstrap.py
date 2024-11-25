@@ -1,11 +1,8 @@
 import socket
 import threading
 import json
-<<<<<<< HEAD
 from recup_ip import generate_key
 
-=======
->>>>>>> main
 
 HOST = '127.0.0.1'  # Adresse du serveur bootstrap
 PORT = 5001      # Port d'écoute du bootstrap
@@ -25,18 +22,13 @@ def process_peer_connection(conn, addr):
     try:
         # Réception de la commande initiale (JOIN ou LEAVE)
         action = conn.recv(1024).decode('utf-8').strip()
-<<<<<<< HEAD
         global active_peers
-=======
-        
->>>>>>> main
         if action == 'JOIN':
             print(f"New connected peer information : {addr}") # Attribution automatiquement un port source temporaire et unique pour cette connexion
             conn.sendall("Send your listening port".encode('utf-8'))  # Demande du port d'écoute
             port_data = conn.recv(1024).decode('utf-8').strip()  # Réception du port
             print(f"Peer listening port : {port_data}")
             
-<<<<<<< HEAD
             new_peer = (generate_key(f'{addr[0]}:{port_data}'),addr[0], int(port_data))
             if new_peer not in active_peers:
                 active_peers.append(new_peer) # Ajout du pair à la liste des pairs actifs
@@ -57,15 +49,6 @@ def process_peer_connection(conn, addr):
                     right_neighbor=active_peers[right_neighbor_index]
                     print("Pair envoyé :", left_neighbor,right_neighbor)
                     conn.sendall(json.dumps([left_neighbor,right_neighbor]).encode('utf-8'))
-=======
-            new_peer = (addr[0], int(port_data))
-            if new_peer not in active_peers:
-                active_peers.append(new_peer) # Ajout du pair à la liste des pairs actifs
-                print(f"Pair ajouté : {new_peer}")
-                print("Liste des pairs actifs :", active_peers)
-            
-            conn.sendall(json.dumps(active_peers).encode('utf-8'))  # Envoi de la liste des pairs actifs
->>>>>>> main
 
         elif action == 'LEAVE':
             print(f"Le pair {addr} demande à quitter le réseau.")
@@ -74,20 +57,13 @@ def process_peer_connection(conn, addr):
             port_data = conn.recv(1024).decode('utf-8').strip()  # Réception du port
             print(f"Port reçu pour LEAVE : {port_data}")
             
-<<<<<<< HEAD
             peer_to_remove = (generate_key(f'{addr[0]}:{port_data}'),addr[0], int(port_data))
-=======
-            peer_to_remove = (addr[0], int(port_data))
->>>>>>> main
             if peer_to_remove in active_peers:
                 active_peers.remove(peer_to_remove) # Suppresion du pair de la liste des pairs actifs
                 print(f"Pair supprimé : {peer_to_remove}")
                 conn.sendall("Successfully removed from network".encode('utf-8')) # Envoi du message au pair
                 print("Liste des pairs actifs :", active_peers)
-<<<<<<< HEAD
                 
-=======
->>>>>>> main
             else:
                 print(f"Pair non trouvé : {peer_to_remove}")
                 conn.sendall("Peer not found in the active list".encode('utf-8'))
@@ -120,8 +96,4 @@ def start_bootstrap_server():
         thread.start() # Lance le thread pour traiter la connexion en parallèle.
 
 if __name__ == "__main__":
-<<<<<<< HEAD
     start_bootstrap_server()
-=======
-    start_bootstrap_server()
->>>>>>> main
