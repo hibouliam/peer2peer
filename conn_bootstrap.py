@@ -7,7 +7,7 @@ from recup_ip import generate_key
 
 BOOTSTRAP_HOST = '127.0.0.1'  # Adresse du serveur bootstrap
 BOOTSTRAP_PORT = 5001     # Port du bootstrap
-PEER_PORT = 7004         # Port d'écoute du pair
+PEER_PORT = 7003         # Port d'écoute du pair
 
 active_peers = []  # Liste des pairs actifs
 
