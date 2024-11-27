@@ -1,4 +1,4 @@
-import msgpack
+import msgpack # type: ignore
 import socket
 
 active_peers =[['5fe96ad748b11f2e00af23d0899e1bcff4655811831499732e5193937e3c8072fc9f44060acb7db8a3969c0a3df7fc5f52f0607d137bd684725081e6c3894f19', '127.0.0.1', 7001], ['b048dee8bf0ca95792006780bf7cff3a68cb4e37ff35b36313bd83576b02021ce7c0410b8a35613f6ae26507e788f7d4d6af389ec716a9c95729b486e063b20e', '127.0.0.1', 7004]]
@@ -52,35 +52,56 @@ def send_file(message:bytes, key:str, active_peers: list, start:int, end : int) 
     Envoie le fichier a son plus proche voisin
     """
     try :
-        active_peers = sorted(active_peers,key=lambda peer: int(peer[0], 16)) 
-        if key > end :
-            ip = active_peers[2][1]
-            port = active_peers[2][2]
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client_socket:
-                client_socket.connect((ip, port))
-                client_socket.sendall(message)
-        if key < start :
-            ip = active_peers[1][1]
-            port = active_peers[1][2]
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client_socket:
-                client_socket.connect((ip, port))
-                client_socket.sendall(message)
+        active_peers = sorted(active_peers, key=lambda peer: int(peer[0], 16))
+        if int(key, 16) > end:
+            target_peer = active_peers[2]
+        else:
+            target_peer = active_peers[1]
+
+        ip = target_peer[1]
+        port = target_peer[2]
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client_socket:
+            client_socket.connect((ip, port))
+            client_socket.sendall(message)
     except :
         print("Problème lors de l'envoi du fichier")
 
-def send_dht_local(dht:dict,peer:list) -> None :
+def request_dht(active_peers: list, start: int, end: int) -> None:
     """
-    Envoie la dht local à un autre pair lors de la déconnexion
+    Demande une plage spécifique de la DHT à un pair voisin.
+    """
+    try:
+        request_message = {"action": "request_dht", "data": {"start": start, "end": end}}
+        packed_request = msgpack.packb(request_message)
+        for peer in active_peers :
+            ip = peer[1]
+            port = peer[2]
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client_socket:
+                client_socket.connect((ip, port))
+                client_socket.sendall(packed_request)
+
+    except Exception as e:
+        print(f"Erreur lors de la demande de DHT à {peer}: {e}")
+        return {}
+
+def send_dht_local(dht:dict,peer:list, start:int, end:int) -> None :
+    """
+    Envoie une plage de la dht local à un autre pair lors de la déconnexion
     avec peer qui est la liste du pair a qui envoyer la dht
     """
     try:
-        message= {"action":"send_dht", "data": {"dht":dht}}
+        filtered_dht = {key: value for key, value in dht.items() if start <= int(key,16) <= end}
+        message= {"action":"send_dht", "data": {"dht":filtered_dht}}
         msgpack_dht = msgpack.packb(message)
         ip = peer[1]
         port = peer[2]
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client_socket:
             client_socket.connect((ip, port))
             client_socket.sendall(msgpack_dht)
+
+        for key in list(filtered_dht.keys()):
+            del dht[key]
+
     except Exception as e:
         print(f"Erreur lors de l'envoi de la DHT à {peer}: {e}")
 
@@ -111,5 +132,22 @@ def handle_dht(peer:list, active_peers: list, message:bytes,dht_local:dict) -> d
         if action == "send_dht":
             dht_recu=data.get("dht", {})
             return merge_dht(dht_local, dht_recu)
-    except :
-        print("problème avec la handle_dht")
+    except Exception as e:
+        print(f"problème avec la handle_dht : {e}")
+
+'''
+Lorsqu'un pair se connecte il demande la dht en fonction de ce qui est assigné
+Donc étape 1 connexion :avoir sa liste active peer 
+                        puis faire la fonction assign_dht pour avoir start et end
+                        Demander la dht a ses pairs avec un start et end (en fonction de son assign_dht) (faire une fonction pour)                       
+                        Intégration de la dht recu grace dans la dht_local grace à handle_dht
+            
+        pair demande dht : Réajuste son start et end grâce à assign_dht
+                           Envoie de la dht en fonction du start et end avec la fonction send_dht (ajout de cette fonction dans handle_dht)
+                           Supprime de sa dht local la dht envoyé
+                         
+
+            déconnexion : Envoie toute sa dht au pair concerné 
+
+
+'''
