@@ -101,7 +101,7 @@ def send_dht_local(dht:dict,peer:list, start:int, end:int) -> None :
 
         for key in list(filtered_dht.keys()):
             del dht[key]
-
+        return dht
     except Exception as e:
         print(f"Erreur lors de l'envoi de la DHT à {peer}: {e}")
 
@@ -121,6 +121,14 @@ def handle_dht(peer:list, active_peers: list, message:bytes,dht_local:dict) -> d
         received_data = msgpack.unpackb(message)
         action = received_data.get("action")
         data = received_data.get("data")
+        if action == "request_dht" :
+            start_recu = int(data.get("start"))
+            end_recu = int(data.get("end"))
+            start_peer,end_peer=assign_dht(peer, active_peers)
+            if (start_recu>=start_peer and end_recu<=end_peer) or (end_recu is None and end_peer is None and start_recu>start_peer):
+                return send_dht_local(dht_local,peer,start_recu,end_recu)
+            else :
+                return
         if action == "add_file":
             key=int(data.get("key"),16)
             start,end=assign_dht(peer, active_peers)
@@ -139,12 +147,12 @@ def handle_dht(peer:list, active_peers: list, message:bytes,dht_local:dict) -> d
 Lorsqu'un pair se connecte il demande la dht en fonction de ce qui est assigné
 Donc étape 1 connexion :avoir sa liste active peer 
                         puis faire la fonction assign_dht pour avoir start et end
-                        Demander la dht a ses pairs avec un start et end (en fonction de son assign_dht) (faire une fonction pour)                       
+                        Demander la dht a ses pairs avec un start et end grâce a requiert_dht(en fonction de son assign_dht)                        
                         Intégration de la dht recu grace dans la dht_local grace à handle_dht
             
         pair demande dht : Réajuste son start et end grâce à assign_dht
-                           Envoie de la dht en fonction du start et end avec la fonction send_dht (ajout de cette fonction dans handle_dht)
-                           Supprime de sa dht local la dht envoyé
+                           Envoie + supprime de de la dht en fonction du start et end avec la fonction send_dht 
+                           
                          
 
             déconnexion : Envoie toute sa dht au pair concerné 
