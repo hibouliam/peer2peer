@@ -132,7 +132,7 @@ def handle_dht(peer:list, active_peers: list, message:bytes,dht_local:dict) -> d
         if action == "add_file":
             key=int(data.get("key"),16)
             start,end=assign_dht(peer, active_peers)
-            if (key>start and key<end) or (end is None and key>start):
+            if (key>=start and key<end) or (end is None and key>=start):
                 localisations = data.get("localisations")
                 return add_file_to_dht_local(dht_local, key, localisations)
             else :
