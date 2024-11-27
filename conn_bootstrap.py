@@ -2,60 +2,32 @@ import socket
 import threading
 import json
 import sys
+from recup_ip import generate_key, truncate_key, validate_and_truncate_peers
+from dht import handle_dht, assign_dht, request_dht, send_dht_local
 
-BOOTSTRAP_HOST = '163.5.23.4'  # Adresse du serveur bootstrap
-BOOTSTRAP_PORT = 53173      # Port du bootstrap
-PEER_PORT = 7002             # Port d'écoute du pair
+
+BOOTSTRAP_HOST = '127.0.0.1'  # Adresse du serveur bootstrap
+BOOTSTRAP_PORT = 5001     # Port du bootstrap
+PEER_PORT = 7002        # Port d'écoute du pair
 
 active_peers = []  # Liste des pairs actifs
 
-# def connect_to_bootstrap():
-#     """
-#     Connexion au serveur Bootstrap coté pair
-#     """
-#     try:
-#         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s: # socket.AF_INET : utilisation du protocole IPv4 & socket.SOCK_STREAM : TCP (Transmission Control Protocol)
-#             s.connect((BOOTSTRAP_HOST, BOOTSTRAP_PORT)) # Connexion avec le serveur bootstrap
-#             s.sendall("JOIN".encode('utf-8'))  # Envoi de la demande d'inscription
-#             response = s.recv(1024).decode('utf-8') # Attente de la réponse du bootstrap
-#             print(response)  # Afficher le message du serveur bootstrap
-#             if response == "Send your listening port":
-#                 s.sendall(str(PEER_PORT).encode('utf-8'))  # Envoie du port d'écoute du pair
-#             response = s.recv(1024).decode('utf-8') # Attente de la réponse du bootstrap
-#             global active_peers
-#             active_peers = json.loads(response)  # Stockage des pairs actifs
-#             print("List of active peers:", active_peers)
-#     except Exception as e:
-#         print(f"Bootstrap connection error : {e}")
+peer=[]
+dht = {}  # Initialisation de la DHT en tant que dictionnaire vide
 
 
-# def leave_network():
-#     """
-#     Fonction pour quitter proprement le réseau en informant le serveur bootstrap.
-#     """
-#     try:
-#         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-#             s.connect((BOOTSTRAP_HOST, BOOTSTRAP_PORT))
-#             s.sendall("LEAVE".encode('utf-8'))  # Informer le bootstrap du départ
-#             s.sendall(str(PEER_PORT).encode('utf-8'))  # Envoi du port d'écoute du pair pour identification
-#             response = s.recv(1024).decode('utf-8')
-#             if response == "OK":
-#                 print("Vous avez quitté le réseau avec succès.")
-#             else:
-#                 print("Erreur lors de la tentative de quitter le réseau.")
-#     except Exception as e:
-#         print(f"Erreur lors de la déconnexion du réseau : {e}")
-#     finally:
-#         sys.exit()  # Fermer le programme proprement
 
-
-def bootstrap_interaction(action):
+def bootstrap_interaction(action :str) -> None : 
     """
     Fonction unique pour interagir avec le serveur Bootstrap pour se connecter (JOIN) ou quitter le réseau (LEAVE).
 
     Paramètre :
     - action : 'JOIN' pour se connecter au réseau ou 'LEAVE' pour le quitter.
     """
+
+    global dht  # Déclarer dht comme global pour pouvoir y accéder dans cette fonction
+
+
     if action not in ['JOIN', 'LEAVE']:
         print("Action non valide. Utilisez 'JOIN' ou 'LEAVE'.")
         return
@@ -75,16 +47,29 @@ def bootstrap_interaction(action):
                 # Récupérer la liste des pairs actifs
                 response = s.recv(1024).decode('utf-8') # Réception du message envoyé par le bootstrap
                 global active_peers
-                active_peers = json.loads(response)  # Stockage des pairs actifs
+                active_peers = validate_and_truncate_peers(json.loads(response))  # Stockage des pairs actifs avec clés tronquées
                 print("Liste des pairs actifs :", active_peers)
+
+                # Demander la DHT et assigner la plage de responsabilité
+                start, end = assign_dht(peer, active_peers)
+                request_dht(active_peers, start, end)  # Demander la DHT aux voisins
+                
+                # Intégrer la DHT reçue dans la DHT locale
+                handle_dht(peer, active_peers, b'', dht)
 
             elif action == "LEAVE":
                 response = s.recv(1024).decode('utf-8') # Réception du message envoyé par le bootstrap
+                attempt_peer_connections()
                 print(response)  # Afficher le message "Send your port for LEAVE"
                 s.sendall(str(PEER_PORT).encode('utf-8'))  # Envoi du port d'écoute
                 
                 response = s.recv(1024).decode('utf-8')
                 print(f"Réponse reçue du Bootstrap : {response}")
+
+                # Lors de la déconnexion, envoyer la DHT locale à un autre pair
+                # (Utiliser la plage de responsabilité appropriée)
+                start, end = assign_dht(peer, active_peers)
+                send_dht_local(dht, peer, start, end)
 
     except Exception as e:
         print(f"Erreur lors de l'interaction avec le Bootstrap ({action}) : {e}")
@@ -115,55 +100,97 @@ def handle_communication_between_peer(conn):
     """
     Gère la communication entre 2 pairs. Ici, réception et affichage des données envoyées
     """
+    global dht  # Déclarer 'dht' comme globale pour l'utiliser dans cette fonction.
+
     try:
         data = conn.recv(1024).decode('utf-8') # Attente, réception et décodage des données
+        add_neighbor_peer(data)
+        print(type(data))
         print(f"Received data : {data}") 
         # Traitement des données ici
+        # Traiter la DHT reçue
+        handle_dht(peer, active_peers, data.encode('utf-8'), dht)
     except Exception as e:
         print(f"Peer management error : {e}")
     finally:
         conn.close() # Fermeture de la connexion
 
-
-
 def attempt_peer_connections():
     """
     Tentative de connexion à chaque pairs actifs
     """
-    for peer in active_peers:
-        peer_ip, peer_port = peer
-        try:
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                s.connect((peer_ip, peer_port)) # connexion au pair
-                s.sendall("Hello new peer!".encode('utf-8'))
-                print(f"Successful connection with the peer {peer}")
-        except Exception as e:
-            print(f"Peer connection error {peer_ip}:{peer_port} : {e}")
+    global peer
+    if len(active_peers) < 1 :    
+        return  # Exit the function if only one peer exists
+    else :
+        for peer in active_peers:
+            peer_ip, peer_port = peer[1:]
 
-server_thread = threading.Thread(target=start_peer_server) # Création d'un thread pour gérer la connexion entre 2 pairs avec la fonction start_peer_server
-server_thread.daemon = True
-server_thread.start()
+            # Initialiser la DHT locale pour ce peer
+            global dht
+
+            try:                
+                peer = [truncate_key(generate_key(f'127.0.0.1:{PEER_PORT}')), '127.0.0.1', PEER_PORT]
+                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                    s.connect((peer_ip, peer_port)) # connexion au pair
+                    s.sendall(f"Successful connection with the peer {[peer,active_peers]}".encode('utf-8'))
+
+                    # Demander la DHT après avoir connecté un pair
+                    start, end = assign_dht(peer, active_peers)
+                    request_dht(active_peers, start, end)  # Demander la DHT aux voisins
+
+            except Exception as e:
+                print(f"Peer connection error {peer_ip}:{peer_port} : {e}")
 
 
-# Connecter au bootstrap
-#connect_to_bootstrap()
-#bootstrap_interaction("JOIN")
+def add_neighbor_peer(data: str) -> None:
+    """
+    Ajoute un pair voisin à la liste active_peers_neighbor si le message reçu correspond au format attendu.
 
-# Se connecter aux autres pairs du réseau
-attempt_peer_connections()
+    Paramètres :
+    - data : Le message reçu sous forme de chaîne de caractères.
 
-print("Le pair est maintenant actif et écoute les nouvelles connexions.")
+    Actions :
+    - Si le message contient "Successful connection with the peer {JSON}", extrait l'IP et le port et les ajoute.
+    """
+    global active_peers
+    try:
+        if data.startswith("Successful connection with the peer "):
+            # Extrait la partie JSON du message
+            peer_info_str = data[len("Successful connection with the peer "):].strip()
+            peer_info_str = peer_info_str.replace("'", '"')
+            peer_info = json.loads(peer_info_str)  # Convertit le JSON en liste [IP, PORT]
+            peer_info = applatir_données(peer_info)
+            
+            if len(active_peers)<=1 :
+                active_peers.append(peer_info[0])
+            else :
+                count=0 #Pour ne pas enlever plus de deux peer
+                for peer in peer_info :
+                    if peer[1:] !=['127.0.0.1',PEER_PORT]:
+                        if peer in active_peers  :
+                            if count == 0 :
+                                count +=1 
+                                active_peers.remove(peer) 
+                            else :
+                                print(f"les actives paires {active_peers}")
+                                return 
+                        else :
+                            active_peers.append(peer) 
+                        
+            print(f"les actives paires sont {active_peers}")
+                
+    except Exception as e:
+        print(f"Erreur lors de l'ajout d'un pair voisin : {e}")
 
-# try : 
-#     while True:
-#         action = input("Tapez 'q' pour quitter le réseau : ")
-#         if action.lower() == 'q':
-#             leave_network()
-# except KeyboardInterrupt:
-#     print("\nInterruption par l'utilisateur. Déconnexion en cours...")
-#     leave_network()
-
-# Tester l'interaction avec le bootstrap
+def applatir_données(data :list)-> list :
+    result=[]
+    for item in data:
+        if isinstance(item[0], list):  # Vérifie si c'est un sous-élément à aplatir
+            result.extend(item)  # Ajoute chaque sous-élément directement
+        else:
+            result.append(item)  # Sinon, ajoute l'élément directement
+    return result
 try:
     while True:
         print("\nActions disponibles :")
@@ -174,6 +201,26 @@ try:
 
         if action == 'j':
             bootstrap_interaction("JOIN")  # Tester l'action JOIN
+            server_thread = threading.Thread(target=start_peer_server) # Création d'un thread pour gérer la connexion entre 2 pairs avec la fonction start_peer_server
+            server_thread.daemon = True
+            server_thread.start()
+            # Se connecter aux autres pairs du réseau
+            attempt_peer_connections()
+            #Reste à faire
+            print("Liste des pairs actifs :", active_peers)
+
+            #Tester voir si ca fonctionne
+            #Si ca fonctionne faut faire une fonction pour dire qu'il est responsable de la plage de lui à son voisin suivant
+            #Faire deux exceptions : - si ces deux voisins sont plus grands alors il est reponsable de 0 au voisin le plus proche de lui (par exemple si 1 a comme voisin 2 et 5 alors il responsable de 0 à 2 )
+                                   # - si ces deux voisins sont plus petits alors il est reponsable  de lui à +infini (par exemple si 5 a comme voisin 1 et 4 alors il est responable de 5 à +infini)
+            #Et pour l'écriture de la dht je propose soit dictionnaire map (dht={"file1":["12 7.0.0.1:8000","127.0.0.1:5000"]})  
+            #Ou alors directement dans un fichier json  / on peut regarder messagepack(facile) ou protocol buffer (dfficle mais plus sécurisé)
+            #Perso je pense que peu importe lequel on utilise on pourra changer facilement pcq ca reste un peu la même chose
+
+            #Ca c'est autre chose
+            #Enregistrer l'adresse ip de deux paires (celui a qui il envoie et celui qui recoit le message)
+            #Gerer les déconnexions en envoyant le peer suivant au noeud précédent 
+            #Peut être faire un test toute les x secondes pour verifier la connexion
         elif action == 'q':
             bootstrap_interaction("LEAVE")  # Tester l'action LEAVE
             break  # Sortie de la boucle après avoir quitté le réseau
