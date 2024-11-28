@@ -2,19 +2,18 @@ import socket
 import threading
 import json
 import sys
-from recup_ip import generate_key, truncate_key, validate_and_truncate_peers
-from dht import handle_dht, assign_dht, request_dht, send_dht_local
+from recup_ip import generate_key, get_local_ip
+import msgpack
+from dht import assign_dht
 
 
 BOOTSTRAP_HOST = '127.0.0.1'  # Adresse du serveur bootstrap
 BOOTSTRAP_PORT = 5001     # Port du bootstrap
-PEER_PORT = 7002        # Port d'écoute du pair
+PEER_PORT = 7001         # Port d'écoute du pair
 
 active_peers = []  # Liste des pairs actifs
 
 peer=[]
-dht = {}  # Initialisation de la DHT en tant que dictionnaire vide
-
 
 
 def bootstrap_interaction(action :str) -> None : 
@@ -24,10 +23,6 @@ def bootstrap_interaction(action :str) -> None :
     Paramètre :
     - action : 'JOIN' pour se connecter au réseau ou 'LEAVE' pour le quitter.
     """
-
-    global dht  # Déclarer dht comme global pour pouvoir y accéder dans cette fonction
-
-
     if action not in ['JOIN', 'LEAVE']:
         print("Action non valide. Utilisez 'JOIN' ou 'LEAVE'.")
         return
@@ -47,15 +42,12 @@ def bootstrap_interaction(action :str) -> None :
                 # Récupérer la liste des pairs actifs
                 response = s.recv(1024).decode('utf-8') # Réception du message envoyé par le bootstrap
                 global active_peers
-                active_peers = validate_and_truncate_peers(json.loads(response))  # Stockage des pairs actifs avec clés tronquées
+                active_peers = json.loads(response)  # Stockage des pairs actifs
                 print("Liste des pairs actifs :", active_peers)
 
-                # Demander la DHT et assigner la plage de responsabilité
-                start, end = assign_dht(peer, active_peers)
-                request_dht(active_peers, start, end)  # Demander la DHT aux voisins
-                
-                # Intégrer la DHT reçue dans la DHT locale
-                handle_dht(peer, active_peers, b'', dht)
+                # Assigner les plages DHT à ce pair
+                #start, end = assign_dht(generate_key(get_local_ip()), active_peers)
+                #print(f"Plage DHT assignée : start={start}, end={end}")
 
             elif action == "LEAVE":
                 response = s.recv(1024).decode('utf-8') # Réception du message envoyé par le bootstrap
@@ -65,11 +57,6 @@ def bootstrap_interaction(action :str) -> None :
                 
                 response = s.recv(1024).decode('utf-8')
                 print(f"Réponse reçue du Bootstrap : {response}")
-
-                # Lors de la déconnexion, envoyer la DHT locale à un autre pair
-                # (Utiliser la plage de responsabilité appropriée)
-                start, end = assign_dht(peer, active_peers)
-                send_dht_local(dht, peer, start, end)
 
     except Exception as e:
         print(f"Erreur lors de l'interaction avec le Bootstrap ({action}) : {e}")
@@ -100,16 +87,12 @@ def handle_communication_between_peer(conn):
     """
     Gère la communication entre 2 pairs. Ici, réception et affichage des données envoyées
     """
-    global dht  # Déclarer 'dht' comme globale pour l'utiliser dans cette fonction.
-
     try:
         data = conn.recv(1024).decode('utf-8') # Attente, réception et décodage des données
         add_neighbor_peer(data)
         print(type(data))
         print(f"Received data : {data}") 
         # Traitement des données ici
-        # Traiter la DHT reçue
-        handle_dht(peer, active_peers, data.encode('utf-8'), dht)
     except Exception as e:
         print(f"Peer management error : {e}")
     finally:
@@ -125,23 +108,16 @@ def attempt_peer_connections():
     else :
         for peer in active_peers:
             peer_ip, peer_port = peer[1:]
-
-            # Initialiser la DHT locale pour ce peer
-            global dht
-
             try:                
-                peer = [truncate_key(generate_key(f'127.0.0.1:{PEER_PORT}')), '127.0.0.1', PEER_PORT]
+                peer = [generate_key(f'127.0.0.1:{PEER_PORT}'),'127.0.0.1',PEER_PORT]
                 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                     s.connect((peer_ip, peer_port)) # connexion au pair
                     s.sendall(f"Successful connection with the peer {[peer,active_peers]}".encode('utf-8'))
-
-                    # Demander la DHT après avoir connecté un pair
-                    start, end = assign_dht(peer, active_peers)
-                    request_dht(active_peers, start, end)  # Demander la DHT aux voisins
-
             except Exception as e:
                 print(f"Peer connection error {peer_ip}:{peer_port} : {e}")
 
+
+import msgpack
 
 def add_neighbor_peer(data: str) -> None:
     """
@@ -151,37 +127,52 @@ def add_neighbor_peer(data: str) -> None:
     - data : Le message reçu sous forme de chaîne de caractères.
 
     Actions :
-    - Si le message contient "Successful connection with the peer {JSON}", extrait l'IP et le port et les ajoute.
+    - Si le message contient "Successful connection with the peer {list}", extrait l'IP et le port et les ajoute.
     """
     global active_peers
     try:
-        if data.startswith("Successful connection with the peer "):
-            # Extrait la partie JSON du message
-            peer_info_str = data[len("Successful connection with the peer "):].strip()
-            peer_info_str = peer_info_str.replace("'", '"')
-            peer_info = json.loads(peer_info_str)  # Convertit le JSON en liste [IP, PORT]
+        # Si `data` est une chaîne, la convertir en bytes
+        if isinstance(data, str):
+            data = data.encode('utf-8')  # Convertit la chaîne en bytes
+
+        if data.startswith(b"Successful connection with the peer "):
+            # Extrait la partie des données de la liste Python
+            peer_info_str = data[len("Successful connection with the peer "):].strip().decode('utf-8')
+
+            # Débogage pour afficher les données extraites
+            print(f"Peer info extracted: {peer_info_str}")
+
+            # Convertir la chaîne en une liste Python
+            peer_info = eval(peer_info_str)  # Utiliser eval pour convertir la chaîne en liste
+
+            # Vous pouvez inspecter la donnée extraite pour vérifier sa structure
+            print(f"Peer info : {peer_info}")
+
+            # Continuez avec le traitement des pairs
             peer_info = applatir_données(peer_info)
             
-            if len(active_peers)<=1 :
+            if len(active_peers) <= 1:
                 active_peers.append(peer_info[0])
-            else :
-                count=0 #Pour ne pas enlever plus de deux peer
-                for peer in peer_info :
-                    if peer[1:] !=['127.0.0.1',PEER_PORT]:
-                        if peer in active_peers  :
-                            if count == 0 :
-                                count +=1 
-                                active_peers.remove(peer) 
-                            else :
-                                print(f"les actives paires {active_peers}")
-                                return 
-                        else :
-                            active_peers.append(peer) 
+            else:
+                count = 0  # Pour ne pas enlever plus de deux peers
+                for peer in peer_info:
+                    if peer[1:] != ['127.0.0.1', PEER_PORT]:
+                        if peer in active_peers:
+                            if count == 0:
+                                count += 1
+                                active_peers.remove(peer)
+                            else:
+                                print(f"Les actives paires {active_peers}")
+                                return
+                        else:
+                            active_peers.append(peer)
                         
-            print(f"les actives paires sont {active_peers}")
-                
+            print(f"Les actives paires sont {active_peers}")
+
     except Exception as e:
         print(f"Erreur lors de l'ajout d'un pair voisin : {e}")
+
+
 
 def applatir_données(data :list)-> list :
     result=[]
@@ -191,6 +182,7 @@ def applatir_données(data :list)-> list :
         else:
             result.append(item)  # Sinon, ajoute l'élément directement
     return result
+
 try:
     while True:
         print("\nActions disponibles :")
@@ -230,3 +222,9 @@ try:
 except KeyboardInterrupt:
     print("\nInterruption par l'utilisateur. Déconnexion en cours...")
     bootstrap_interaction("LEAVE")
+
+
+
+
+
+
