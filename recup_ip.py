@@ -3,17 +3,8 @@ import hashlib
 
 def generate_key(filename: str) -> str:
     """Génère une clé unique pour un fichier en utilisant SHA."""
-    return hashlib.sha3_512(filename.encode()).hexdigest()
+    return hashlib.sha3_256(filename.encode()).hexdigest()
 
-def truncate_key(key: str, bit_size=256):
-    max_length = bit_size // 4  # 256 bits -> 64 caractères hexadécimaux
-    return key[:max_length]
-
-def validate_and_truncate_peers(active_peers: list) -> list:
-    """
-    Tronque et valide les clés des pairs actifs.
-    """
-    return [[truncate_key(peer[0]), peer[1], peer[2]] for peer in active_peers]
 
 def get_local_ip() -> str:
     try:
