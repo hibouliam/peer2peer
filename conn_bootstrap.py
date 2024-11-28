@@ -3,16 +3,17 @@ import threading
 import json
 import sys
 from recup_ip import generate_key
-
+import msgpack
+from dht import assign_dht, request_dht,handle_dht
 
 BOOTSTRAP_HOST = '127.0.0.1'  # Adresse du serveur bootstrap
 BOOTSTRAP_PORT = 5001     # Port du bootstrap
-PEER_PORT = 7003         # Port d'écoute du pair
+PEER_PORT = 7000         # Port d'écoute du pair
 
 active_peers = []  # Liste des pairs actifs
 
-peer=[]
-
+my_node=[generate_key(f'127.0.0.1:{PEER_PORT}'),'127.0.0.1',PEER_PORT]
+dht_local ={}
 
 def bootstrap_interaction(action :str) -> None : 
     """
@@ -41,7 +42,6 @@ def bootstrap_interaction(action :str) -> None :
                 response = s.recv(1024).decode('utf-8') # Réception du message envoyé par le bootstrap
                 global active_peers
                 active_peers = json.loads(response)  # Stockage des pairs actifs
-                print("Liste des pairs actifs :", active_peers)
 
             elif action == "LEAVE":
                 response = s.recv(1024).decode('utf-8') # Réception du message envoyé par le bootstrap
@@ -82,11 +82,11 @@ def handle_communication_between_peer(conn):
     Gère la communication entre 2 pairs. Ici, réception et affichage des données envoyées
     """
     try:
-        data = conn.recv(1024).decode('utf-8') # Attente, réception et décodage des données
+        data = msgpack.unpackb(conn.recv(1024))
+        print(f"data:{data}")
         add_neighbor_peer(data)
-        print(type(data))
-        print(f"Received data : {data}") 
-        # Traitement des données ici
+        handle_dht(my_node,active_peers,data,dht_local)
+        
     except Exception as e:
         print(f"Peer management error : {e}")
     finally:
@@ -96,17 +96,17 @@ def attempt_peer_connections():
     """
     Tentative de connexion à chaque pairs actifs
     """
-    global peer
+    global my_node
     if len(active_peers) < 1 :    
         return  # Exit the function if only one peer exists
     else :
         for peer in active_peers:
             peer_ip, peer_port = peer[1:]
             try:                
-                peer = [generate_key(f'127.0.0.1:{PEER_PORT}'),'127.0.0.1',PEER_PORT]
                 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                     s.connect((peer_ip, peer_port)) # connexion au pair
-                    s.sendall(f"Successful connection with the peer {[peer,active_peers]}".encode('utf-8'))
+                    message = {"action": "Connection with the peer", "data": [my_node, active_peers]}
+                    s.sendall(msgpack.packb(message))
             except Exception as e:
                 print(f"Peer connection error {peer_ip}:{peer_port} : {e}")
 
@@ -121,15 +121,14 @@ def add_neighbor_peer(data: str) -> None:
     Actions :
     - Si le message contient "Successful connection with the peer {JSON}", extrait l'IP et le port et les ajoute.
     """
+    global my_node
     global active_peers
+    global responsability_plage
     try:
-        if data.startswith("Successful connection with the peer "):
-            # Extrait la partie JSON du message
-            peer_info_str = data[len("Successful connection with the peer "):].strip()
-            peer_info_str = peer_info_str.replace("'", '"')
-            peer_info = json.loads(peer_info_str)  # Convertit le JSON en liste [IP, PORT]
+        if data.get("action") == "Connection with the peer":
+            peer_info = data["data"]
             peer_info = applatir_données(peer_info)
-            
+
             if len(active_peers)<=1 :
                 active_peers.append(peer_info[0])
             else :
@@ -142,10 +141,14 @@ def add_neighbor_peer(data: str) -> None:
                                 active_peers.remove(peer) 
                             else :
                                 print(f"les actives paires {active_peers}")
+                                responsability_plage=assign_dht(peer, active_peers)
+                                print(responsability_plage)  
                                 return 
                         else :
                             active_peers.append(peer) 
-                        
+
+            responsability_plage=assign_dht(my_node, active_peers)
+            print(responsability_plage)            
             print(f"les actives paires sont {active_peers}")
                 
     except Exception as e:
@@ -174,7 +177,9 @@ try:
             server_thread.start()
             # Se connecter aux autres pairs du réseau
             attempt_peer_connections()
-            #Reste à faire
+            responsability_plage=assign_dht(my_node, active_peers)
+            
+            print(responsability_plage)
             print("Liste des pairs actifs :", active_peers)
 
             #Tester voir si ca fonctionne
