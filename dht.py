@@ -1,17 +1,29 @@
 import msgpack # type: ignore
 import socket
 
-active_peers =[['5fe96ad748b11f2e00af23d0899e1bcff4655811831499732e5193937e3c8072fc9f44060acb7db8a3969c0a3df7fc5f52f0607d137bd684725081e6c3894f19', '127.0.0.1', 7001], ['b048dee8bf0ca95792006780bf7cff3a68cb4e37ff35b36313bd83576b02021ce7c0410b8a35613f6ae26507e788f7d4d6af389ec716a9c95729b486e063b20e', '127.0.0.1', 7004]]
-peer = ['6fe96ad748b11f2e00af23d0899e1bcff4655811831499732e5193937e3c8072fc9f44060acb7db8a3969c0a3df7fc5f52f0607d137bd684725081e6c3894f19', '127.0.0.1', 7002]
-def assign_dht(peer: list,active_peers:list) -> tuple :
+active_peers =[['8d63f136a918f183a00e2d6059d09e1493a4286a9c34a41d05c522afde3ab5834fc99aa62bf6fe7867739749015c63b5135f2c7091bb4078d1cc27d8cdaecb87', '127.0.0.1', 7003]]
+peer = ['b048dee8bf0ca95792006780bf7cff3a68cb4e37ff35b36313bd83576b02021ce7c0410b8a35613f6ae26507e788f7d4d6af389ec716a9c95729b486e063b20e', '127.0.0.1', 7004]
+def assign_dht(my_node: list,active_peers:list) -> tuple :
     """
     Asssigne la plage de la dht au pair en fonction de ses voisins en utilisant la fonction determine_responsibility
     """
-    peer_key = int(peer [0],16)
+    if len(active_peers) == 0 :
+        return (0,None)
     
+    my_node_key = int(my_node [0],16)
     left_neighbor_key = int(active_peers [0][0],16)
+
+    if len(active_peers) == 1 :
+        if(my_node_key < left_neighbor_key):
+            return (0,left_neighbor_key)
+        else :
+            return (my_node_key,None)
+
+
     right_neighbor_key = int(active_peers [1][0],16)
-    return determine_responsibility (peer_key,left_neighbor_key,right_neighbor_key)
+    return determine_responsibility (my_node_key,left_neighbor_key,right_neighbor_key)
+
+print (assign_dht(peer,active_peers))
 
 def determine_responsibility(peer_key : int, left_neighbor_key : int, right_neighbor_key :int) -> tuple:
     """
@@ -66,11 +78,12 @@ def send_file(message:bytes, key:str, active_peers: list, start:int, end : int) 
     except :
         print("Problème lors de l'envoi du fichier")
 
-def request_dht(active_peers: list, start: int, end: int) -> None:
+def request_dht(active_peers: list, responsability_plage: tuple) -> None:
     """
     Demande une plage spécifique de la DHT à un pair voisin.
     """
     try:
+        start,end=responsability_plage
         request_message = {"action": "request_dht", "data": {"start": start, "end": end}}
         packed_request = msgpack.packb(request_message)
         for peer in active_peers :
@@ -113,12 +126,11 @@ def merge_dht(dht_local:dict, dht_recu:dict) -> dict :
         dht_local=add_file_to_dht_local(dht_local,key,localisations)
     return dht_local
 
-def handle_dht(peer:list, active_peers: list, message:bytes,dht_local:dict) -> dict :
+def handle_dht(peer:list, active_peers: list, received_data:dict,dht_local:dict) -> dict :
     """
     Gère les messages recu qui ont pour but de modifier a dht
     """
     try :
-        received_data = msgpack.unpackb(message)
         action = received_data.get("action")
         data = received_data.get("data")
         if action == "request_dht" :
