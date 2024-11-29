@@ -78,13 +78,13 @@ def send_file(message:bytes, key:str, active_peers: list, start:int, end : int) 
     except :
         print("Problème lors de l'envoi du fichier")
 
-def request_dht(active_peers: list, responsability_plage: tuple) -> None:
+def request_dht(peer:list, active_peers: list, responsability_plage: tuple) -> None:
     """
     Demande une plage spécifique de la DHT à un pair voisin.
     """
     try:
         start,end=responsability_plage
-        request_message = {"action": "request_dht", "data": {"start": start, "end": end}}
+        request_message = {"action": "request_dht", "data": {"start": start, "end": end, "peer":peer}}
         packed_request = msgpack.packb(request_message)
         for peer in active_peers :
             ip = peer[1]
@@ -94,8 +94,7 @@ def request_dht(active_peers: list, responsability_plage: tuple) -> None:
                 client_socket.sendall(packed_request)
 
     except Exception as e:
-        print(f"Erreur lors de la demande de DHT à {peer}: {e}")
-        return {}
+        print(f"Erreur lors de la demande de DHT à: {e}")
 
 def send_dht_local(dht:dict,peer:list, start:int, end:int) -> None :
     """
@@ -138,6 +137,7 @@ def handle_dht(peer:list, active_peers: list, received_data:dict,dht_local:dict)
             end_recu = int(data.get("end"))
             start_peer,end_peer=assign_dht(peer, active_peers)
             if (start_recu>=start_peer and end_recu<=end_peer) or (end_recu is None and end_peer is None and start_recu>start_peer):
+                peer=data.get("peer")
                 return send_dht_local(dht_local,peer,start_recu,end_recu)
             else :
                 return
