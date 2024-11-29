@@ -127,31 +127,45 @@ def merge_dht(dht_local:dict, dht_recu:dict) -> dict :
         dht_local=add_file_to_dht_local(dht_local,key,localisations)
     return dht_local
 
-def handle_dht(peer:list, active_peers: list, received_data:dict,dht_local:dict) -> dict :
+def handle_dht(peer:list, active_peers: list, received_data:dict,dht_local:dict, responsability_plage: tuple) -> dict :
     """
     Gère les messages recu qui ont pour but de modifier a dht
     """
     try :
+        print("coucou")
         action = received_data.get("action")
         data = received_data.get("data")
         if action == "request_dht" :
+            print("coucou")
             start_recu = int(data.get("start"))
             end_recu = data.get("end")
             if end_recu in (None, "None"): 
                 end_recu = None 
             else:
                 end_recu = int(end_recu)
-            start_peer,end_peer=assign_dht(peer, active_peers)
-            if (
-                (start_recu is not None and start_peer is not None and start_recu >= start_peer) and
-                (end_recu is not None and end_peer is not None and end_recu <= end_peer)
-            ) or (
-                end_recu is None and end_peer is None and start_recu is not None and start_peer is not None and start_recu > start_peer
-            ):
-                peer = data.get("peer")
-                return 1,peer, start_recu, end_recu
-            else:
-                return
+            start_peer,end_peer= responsability_plage
+            
+            print(start_recu, end_recu, start_peer, end_peer)
+            if end_recu is None : 
+                if end_peer is None and start_recu > start_peer : 
+                    
+                    peer = data.get("peer")
+                    return send_dht_local(dht_local, peer, start_recu, end_recu)
+                else : 
+                    return 
+            else : 
+                if (start_recu>=start_peer and end_recu<=end_peer) : 
+                    
+                    peer = data.get("peer")
+                    print(peer)
+                    print(type(peer))
+                    print(peer[1])
+                    return send_dht_local(dht_local, peer, start_recu, end_recu)
+            # if (start_recu>=start_peer and end_recu<=end_peer) or (end_recu is None and end_peer is None and start_recu>start_peer):
+            #     peer = data.get("peer")
+            #     return send_dht_local(dht_local, peer, start_recu, end_recu)
+                else:
+                    return
         if action == "add_file":
             key=int(data.get("key"),16)
             start,end=assign_dht(peer, active_peers)

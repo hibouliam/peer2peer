@@ -4,12 +4,12 @@ import json
 import sys
 from recup_ip import generate_key
 import msgpack
-from dht import assign_dht, request_dht,handle_dht,send_dht_local
+from dht import assign_dht, request_dht,handle_dht
 
 
 BOOTSTRAP_HOST = '127.0.0.1'  # Adresse du serveur bootstrap
 BOOTSTRAP_PORT = 5001     # Port du bootstrap
-PEER_PORT = 7002        # Port d'écoute du pair
+PEER_PORT = 7001      # Port d'écoute du pair
 
 active_peers = []  # Liste des pairs actifs
 
@@ -86,15 +86,16 @@ def handle_communication_between_peer(conn):
     """
     try:
         global dht_local
+        global responsability_plage
         data = msgpack.unpackb(conn.recv(1024))
         print(f"data:{data}")
         add_neighbor_peer(data, my_node, active_peers, responsability_plage)
         print(dht_local)
         print(active_peers)
         print(my_node)
-        test, peer, start_recu, end_recu = handle_dht(my_node,active_peers,data, dht_local)
-        if(test ==1) : 
-            send_dht_local(dht_local, peer, start_recu, end_recu)
+        print(responsability_plage)
+        dht_local = handle_dht(my_node,active_peers,data, dht_local, responsability_plage)
+        responsability_plage = assign_dht(my_node, active_peers)
         print(dht_local)
         return dht_local
         
@@ -160,7 +161,7 @@ def add_neighbor_peer(data: str, my_node : list, active_peers:list, responsabili
                         else :
                             active_peers.append(peer) 
 
-            responsability_plage=assign_dht(my_node, active_peers)
+            #responsability_plage=assign_dht(my_node, active_peers)
             print("Responsability plage :", responsability_plage)            
             print(f"les actives paires sont {active_peers}")
             # for peer in active_peers :
