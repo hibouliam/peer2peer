@@ -24,7 +24,7 @@ def assign_dht(my_node: list,active_peers:list) -> tuple :
     right_neighbor_key = int(active_peers [1][0],16)
     return determine_responsibility (my_node_key,left_neighbor_key,right_neighbor_key)
 
-print (assign_dht(peer,active_peers))
+
 
 def determine_responsibility(peer_key : int, left_neighbor_key : int, right_neighbor_key :int) -> tuple:
     """
@@ -87,6 +87,7 @@ def request_dht(peer : list, active_peers: list, responsability_plage: tuple) ->
         start,end=responsability_plage
         request_message = {"action": "request_dht", "data": {"start": str(start), "end": str(end), "peer" : peer}}
         packed_request = msgpack.packb(request_message)
+        print(responsability_plage)
         for peer in active_peers :
             ip = peer[1]
             port = peer[2]
@@ -146,10 +147,11 @@ def handle_dht(peer:list, active_peers: list, received_data:dict,dht_local:dict,
             start_peer,end_peer= responsability_plage
             
             print(start_recu, end_recu, start_peer, end_peer)
-            if end_recu is None : 
-                if end_peer is None and start_recu > start_peer : 
+            if end_recu is None or end_peer is None : 
+                if end_peer is None and start_recu >= start_peer : 
                     
                     peer = data.get("peer")
+                    print(peer)
                     return send_dht_local(dht_local, peer, start_recu, end_recu)
                 else : 
                     return 

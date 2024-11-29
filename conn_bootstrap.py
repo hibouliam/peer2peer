@@ -4,7 +4,7 @@ import json
 import sys
 from recup_ip import generate_key
 import msgpack
-from dht import assign_dht, request_dht,handle_dht
+from dht import assign_dht, request_dht,handle_dht, send_dht_local
 
 
 BOOTSTRAP_HOST = '127.0.0.1'  # Adresse du serveur bootstrap
@@ -14,7 +14,7 @@ PEER_PORT = 7001      # Port d'écoute du pair
 active_peers = []  # Liste des pairs actifs
 
 my_node=[generate_key(f'127.0.0.1:{PEER_PORT}'),'127.0.0.1',PEER_PORT]
-dht_local ={"12378"}
+dht_local = {}
 
 def bootstrap_interaction(action :str, active_peers : list) -> None : 
     """
@@ -89,15 +89,14 @@ def handle_communication_between_peer(conn):
         global responsability_plage
         data = msgpack.unpackb(conn.recv(1024))
         print(f"data:{data}")
-        add_neighbor_peer(data, my_node, active_peers, responsability_plage)
-        print(dht_local)
-        print(active_peers)
-        print(my_node)
-        print(responsability_plage)
-        dht_local = handle_dht(my_node,active_peers,data, dht_local, responsability_plage)
-        responsability_plage = assign_dht(my_node, active_peers)
-        print(dht_local)
-        return dht_local
+        if data.get("action") == "Connection with the peer" :
+            add_neighbor_peer(data, my_node, active_peers)
+        else :
+            dht_local = handle_dht(my_node,active_peers,data, dht_local, responsability_plage)
+            responsability_plage = assign_dht(my_node, active_peers)
+            print(responsability_plage)
+            print(dht_local)
+            return dht_local
         
     except Exception as e:
         print(f"Peer management error : {e}")
@@ -124,7 +123,7 @@ def attempt_peer_connections(my_node : list):
                 print(f"Peer connection error {peer_ip}:{peer_port} : {e}")
 
 
-def add_neighbor_peer(data: str, my_node : list, active_peers:list, responsability_plage : tuple) -> None:
+def add_neighbor_peer(data: str, my_node : list, active_peers:list) -> None:
     """
     Ajoute un pair voisin à la liste active_peers_neighbor si le message reçu correspond au format attendu.
 
@@ -154,9 +153,9 @@ def add_neighbor_peer(data: str, my_node : list, active_peers:list, responsabili
                                 active_peers.remove(peer) 
                             else :
                                 print(f"les actives paires {active_peers}")
-                                responsability_plage=assign_dht(peer, active_peers)
-                                print("Plage de responsabilité : ", responsability_plage)  
-                                request_dht(my_node, active_peers, responsability_plage)
+                                #responsability_plage=assign_dht(peer, active_peers)
+                                #print("Plage de responsabilité : ", responsability_plage)  
+                                #request_dht(my_node, active_peers, responsability_plage)
                                 return 
                         else :
                             active_peers.append(peer) 
@@ -191,6 +190,7 @@ try:
             # Se connecter aux autres pairs du réseau
             attempt_peer_connections(my_node)
             responsability_plage=assign_dht(my_node, active_peers)
+
             request_dht(my_node, active_peers, responsability_plage)
             
             print("Plage de responsabilité :", responsability_plage)
@@ -208,6 +208,7 @@ try:
             #Enregistrer l'adresse ip de deux paires (celui a qui il envoie et celui qui recoit le message)
             #Gerer les déconnexions en envoyant le peer suivant au noeud précédent 
             #Peut être faire un test toute les x secondes pour verifier la connexion
+            #Mettre en
         elif action == 'q':
             bootstrap_interaction("LEAVE", active_peers)  # Tester l'action LEAVE
             break  # Sortie de la boucle après avoir quitté le réseau

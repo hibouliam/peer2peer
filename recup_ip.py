@@ -3,7 +3,7 @@ import hashlib
 
 def generate_key(filename: str) -> str:
     """Génère une clé unique pour un fichier en utilisant SHA."""
-    return hashlib.sha3_256(filename.encode()).hexdigest()
+    return hashlib.sha3_512(filename.encode()).hexdigest()
 
 
 def get_local_ip() -> str:
