@@ -161,14 +161,7 @@ def add_neighbor_peer(data: str, my_node : list, active_peers:list, responsabili
                         else :
                             active_peers.append(peer) 
 
-            #responsability_plage=assign_dht(my_node, active_peers)
-            print("Responsability plage :", responsability_plage)            
-            print(f"les actives paires sont {active_peers}")
-            # for peer in active_peers :
-            #     ip = peer[1]
-            #     port = peer[2]
-            #     print(ip, port)
-            request_dht(my_node, active_peers, responsability_plage)
+
                     
     except Exception as e:
         print(f"Erreur lors de l'ajout d'un pair voisin : {e}")
