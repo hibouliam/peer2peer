@@ -143,13 +143,13 @@ def add_neighbor_peer(data: str, my_node : list, active_peers:list, responsabili
                             else :
                                 print(f"les actives paires {active_peers}")
                                 responsability_plage=assign_dht(peer, active_peers)
-                                print(responsability_plage)  
+                                print("Responsability plage : ", responsability_plage)  
                                 return 
                         else :
                             active_peers.append(peer) 
 
             responsability_plage=assign_dht(my_node, active_peers)
-            print(responsability_plage)            
+            print("Responsability plage : ", responsability_plage)            
             print(f"les actives paires sont {active_peers}")
                 
     except Exception as e:
