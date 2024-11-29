@@ -2,19 +2,19 @@ import socket
 import threading
 import json
 import sys
-from recup_ip import generate_key, get_local_ip
+from recup_ip import generate_key
 import msgpack
-from dht import assign_dht
+from dht import assign_dht, request_dht,handle_dht
 
 
 BOOTSTRAP_HOST = '127.0.0.1'  # Adresse du serveur bootstrap
 BOOTSTRAP_PORT = 5001     # Port du bootstrap
-PEER_PORT = 7001         # Port d'écoute du pair
+PEER_PORT = 7002         # Port d'écoute du pair
 
 active_peers = []  # Liste des pairs actifs
 
-peer=[]
-
+my_node=[generate_key(f'127.0.0.1:{PEER_PORT}'),'127.0.0.1',PEER_PORT]
+dht_local ={}
 
 def bootstrap_interaction(action :str) -> None : 
     """
@@ -43,15 +43,10 @@ def bootstrap_interaction(action :str) -> None :
                 response = s.recv(1024).decode('utf-8') # Réception du message envoyé par le bootstrap
                 global active_peers
                 active_peers = json.loads(response)  # Stockage des pairs actifs
-                print("Liste des pairs actifs :", active_peers)
-
-                # Assigner les plages DHT à ce pair
-                #start, end = assign_dht(generate_key(get_local_ip()), active_peers)
-                #print(f"Plage DHT assignée : start={start}, end={end}")
 
             elif action == "LEAVE":
                 response = s.recv(1024).decode('utf-8') # Réception du message envoyé par le bootstrap
-                attempt_peer_connections()
+                attempt_peer_connections(my_node)
                 print(response)  # Afficher le message "Send your port for LEAVE"
                 s.sendall(str(PEER_PORT).encode('utf-8'))  # Envoi du port d'écoute
                 
@@ -88,38 +83,36 @@ def handle_communication_between_peer(conn):
     Gère la communication entre 2 pairs. Ici, réception et affichage des données envoyées
     """
     try:
-        data = conn.recv(1024).decode('utf-8') # Attente, réception et décodage des données
-        add_neighbor_peer(data)
-        print(type(data))
-        print(f"Received data : {data}") 
-        # Traitement des données ici
+        data = msgpack.unpackb(conn.recv(1024))
+        print(f"data:{data}")
+        add_neighbor_peer(data, my_node, active_peers, responsability_plage)
+        handle_dht(my_node,active_peers,data,dht_local)
+        
     except Exception as e:
         print(f"Peer management error : {e}")
     finally:
         conn.close() # Fermeture de la connexion
 
-def attempt_peer_connections():
+def attempt_peer_connections(my_node : list):
     """
     Tentative de connexion à chaque pairs actifs
     """
-    global peer
+    #global my_node
     if len(active_peers) < 1 :    
         return  # Exit the function if only one peer exists
     else :
         for peer in active_peers:
             peer_ip, peer_port = peer[1:]
             try:                
-                peer = [generate_key(f'127.0.0.1:{PEER_PORT}'),'127.0.0.1',PEER_PORT]
                 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                     s.connect((peer_ip, peer_port)) # connexion au pair
-                    s.sendall(f"Successful connection with the peer {[peer,active_peers]}".encode('utf-8'))
+                    message = {"action": "Connection with the peer", "data": [my_node, active_peers]}
+                    s.sendall(msgpack.packb(message))
             except Exception as e:
                 print(f"Peer connection error {peer_ip}:{peer_port} : {e}")
 
 
-import msgpack
-
-def add_neighbor_peer(data: str) -> None:
+def add_neighbor_peer(data: str, my_node : list, active_peers:list, responsability_plage : tuple) -> None:
     """
     Ajoute un pair voisin à la liste active_peers_neighbor si le message reçu correspond au format attendu.
 
@@ -127,52 +120,40 @@ def add_neighbor_peer(data: str) -> None:
     - data : Le message reçu sous forme de chaîne de caractères.
 
     Actions :
-    - Si le message contient "Successful connection with the peer {list}", extrait l'IP et le port et les ajoute.
+    - Si le message contient "Successful connection with the peer {JSON}", extrait l'IP et le port et les ajoute.
     """
-    global active_peers
+    #global my_node
+    #global active_peers
+    #global responsability_plage
     try:
-        # Si `data` est une chaîne, la convertir en bytes
-        if isinstance(data, str):
-            data = data.encode('utf-8')  # Convertit la chaîne en bytes
-
-        if data.startswith(b"Successful connection with the peer "):
-            # Extrait la partie des données de la liste Python
-            peer_info_str = data[len("Successful connection with the peer "):].strip().decode('utf-8')
-
-            # Débogage pour afficher les données extraites
-            print(f"Peer info extracted: {peer_info_str}")
-
-            # Convertir la chaîne en une liste Python
-            peer_info = eval(peer_info_str)  # Utiliser eval pour convertir la chaîne en liste
-
-            # Vous pouvez inspecter la donnée extraite pour vérifier sa structure
-            print(f"Peer info : {peer_info}")
-
-            # Continuez avec le traitement des pairs
+        if data.get("action") == "Connection with the peer":
+            peer_info = data["data"]
             peer_info = applatir_données(peer_info)
-            
-            if len(active_peers) <= 1:
-                active_peers.append(peer_info[0])
-            else:
-                count = 0  # Pour ne pas enlever plus de deux peers
-                for peer in peer_info:
-                    if peer[1:] != ['127.0.0.1', PEER_PORT]:
-                        if peer in active_peers:
-                            if count == 0:
-                                count += 1
-                                active_peers.remove(peer)
-                            else:
-                                print(f"Les actives paires {active_peers}")
-                                return
-                        else:
-                            active_peers.append(peer)
-                        
-            print(f"Les actives paires sont {active_peers}")
 
+            if len(active_peers)<=1 :
+                active_peers.append(peer_info[0])
+            else :
+                count=0 #Pour ne pas enlever plus de deux peer
+                for peer in peer_info :
+                    if peer[1:] !=['127.0.0.1',PEER_PORT]:
+                        if peer in active_peers  :
+                            if count == 0 :
+                                count +=1 
+                                active_peers.remove(peer) 
+                            else :
+                                print(f"les actives paires {active_peers}")
+                                responsability_plage=assign_dht(peer, active_peers)
+                                print(responsability_plage)  
+                                return 
+                        else :
+                            active_peers.append(peer) 
+
+            responsability_plage=assign_dht(my_node, active_peers)
+            print(responsability_plage)            
+            print(f"les actives paires sont {active_peers}")
+                
     except Exception as e:
         print(f"Erreur lors de l'ajout d'un pair voisin : {e}")
-
-
 
 def applatir_données(data :list)-> list :
     result=[]
@@ -182,7 +163,7 @@ def applatir_données(data :list)-> list :
         else:
             result.append(item)  # Sinon, ajoute l'élément directement
     return result
-
+    
 try:
     while True:
         print("\nActions disponibles :")
@@ -197,8 +178,10 @@ try:
             server_thread.daemon = True
             server_thread.start()
             # Se connecter aux autres pairs du réseau
-            attempt_peer_connections()
-            #Reste à faire
+            attempt_peer_connections(my_node)
+            responsability_plage=assign_dht(my_node, active_peers)
+            
+            print(responsability_plage)
             print("Liste des pairs actifs :", active_peers)
 
             #Tester voir si ca fonctionne
@@ -222,9 +205,3 @@ try:
 except KeyboardInterrupt:
     print("\nInterruption par l'utilisateur. Déconnexion en cours...")
     bootstrap_interaction("LEAVE")
-
-
-
-
-
-
