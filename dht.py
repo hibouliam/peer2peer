@@ -148,6 +148,7 @@ def handle_dht(peer:list, active_peers: list, received_data:dict,dht_local:dict)
                 localisations = data.get("localisations")
                 return add_file_to_dht_local(dht_local, key, localisations)
             else :
+                message=msgpack.packb(data)
                 return send_file(message, key,active_peers, start, end)
         if action == "send_dht":
             dht_recu=data.get("dht", {})
