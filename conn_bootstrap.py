@@ -4,17 +4,17 @@ import json
 import sys
 from recup_ip import generate_key
 import msgpack
-from dht import assign_dht, request_dht,handle_dht
+from dht import assign_dht, request_dht,handle_dht,send_dht_local
 
 
 BOOTSTRAP_HOST = '127.0.0.1'  # Adresse du serveur bootstrap
 BOOTSTRAP_PORT = 5001     # Port du bootstrap
-PEER_PORT = 7003         # Port d'écoute du pair
+PEER_PORT = 7002        # Port d'écoute du pair
 
 active_peers = []  # Liste des pairs actifs
 
 my_node=[generate_key(f'127.0.0.1:{PEER_PORT}'),'127.0.0.1',PEER_PORT]
-dht_local ={}
+dht_local ={"12378"}
 
 def bootstrap_interaction(action :str, active_peers : list) -> None : 
     """
@@ -44,6 +44,7 @@ def bootstrap_interaction(action :str, active_peers : list) -> None :
                 #global active_peers
                 active_peers = json.loads(response)  # Stockage des pairs actifs
                 return active_peers
+            
 
             elif action == "LEAVE":
                 response = s.recv(1024).decode('utf-8') # Réception du message envoyé par le bootstrap
@@ -84,15 +85,24 @@ def handle_communication_between_peer(conn):
     Gère la communication entre 2 pairs. Ici, réception et affichage des données envoyées
     """
     try:
+        global dht_local
         data = msgpack.unpackb(conn.recv(1024))
         print(f"data:{data}")
         add_neighbor_peer(data, my_node, active_peers, responsability_plage)
-        handle_dht(my_node,active_peers,data,dht_local)
+        print(dht_local)
+        print(active_peers)
+        print(my_node)
+        test, peer, start_recu, end_recu = handle_dht(my_node,active_peers,data, dht_local)
+        if(test ==1) : 
+            send_dht_local(dht_local, peer, start_recu, end_recu)
+        print(dht_local)
+        return dht_local
         
     except Exception as e:
         print(f"Peer management error : {e}")
     finally:
         conn.close() # Fermeture de la connexion
+        
 
 def attempt_peer_connections(my_node : list):
     """
@@ -145,6 +155,7 @@ def add_neighbor_peer(data: str, my_node : list, active_peers:list, responsabili
                                 print(f"les actives paires {active_peers}")
                                 responsability_plage=assign_dht(peer, active_peers)
                                 print("Plage de responsabilité : ", responsability_plage)  
+                                request_dht(my_node, active_peers, responsability_plage)
                                 return 
                         else :
                             active_peers.append(peer) 
@@ -152,7 +163,12 @@ def add_neighbor_peer(data: str, my_node : list, active_peers:list, responsabili
             responsability_plage=assign_dht(my_node, active_peers)
             print("Responsability plage :", responsability_plage)            
             print(f"les actives paires sont {active_peers}")
-                
+            # for peer in active_peers :
+            #     ip = peer[1]
+            #     port = peer[2]
+            #     print(ip, port)
+            request_dht(my_node, active_peers, responsability_plage)
+                    
     except Exception as e:
         print(f"Erreur lors de l'ajout d'un pair voisin : {e}")
 
@@ -181,6 +197,7 @@ try:
             # Se connecter aux autres pairs du réseau
             attempt_peer_connections(my_node)
             responsability_plage=assign_dht(my_node, active_peers)
+            request_dht(my_node, active_peers, responsability_plage)
             
             print("Plage de responsabilité :", responsability_plage)
             print("Liste des pairs actifs :", active_peers)
