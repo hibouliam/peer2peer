@@ -9,14 +9,14 @@ from dht import assign_dht, request_dht,handle_dht
 
 BOOTSTRAP_HOST = '127.0.0.1'  # Adresse du serveur bootstrap
 BOOTSTRAP_PORT = 5001     # Port du bootstrap
-PEER_PORT = 7002         # Port d'écoute du pair
+PEER_PORT = 7003         # Port d'écoute du pair
 
 active_peers = []  # Liste des pairs actifs
 
 my_node=[generate_key(f'127.0.0.1:{PEER_PORT}'),'127.0.0.1',PEER_PORT]
 dht_local ={}
 
-def bootstrap_interaction(action :str) -> None : 
+def bootstrap_interaction(action :str, active_peers : list) -> None : 
     """
     Fonction unique pour interagir avec le serveur Bootstrap pour se connecter (JOIN) ou quitter le réseau (LEAVE).
 
@@ -41,8 +41,9 @@ def bootstrap_interaction(action :str) -> None :
 
                 # Récupérer la liste des pairs actifs
                 response = s.recv(1024).decode('utf-8') # Réception du message envoyé par le bootstrap
-                global active_peers
+                #global active_peers
                 active_peers = json.loads(response)  # Stockage des pairs actifs
+                return active_peers
 
             elif action == "LEAVE":
                 response = s.recv(1024).decode('utf-8') # Réception du message envoyé par le bootstrap
@@ -143,13 +144,13 @@ def add_neighbor_peer(data: str, my_node : list, active_peers:list, responsabili
                             else :
                                 print(f"les actives paires {active_peers}")
                                 responsability_plage=assign_dht(peer, active_peers)
-                                print("Responsability plage : ", responsability_plage)  
+                                print("Plage de responsabilité : ", responsability_plage)  
                                 return 
                         else :
                             active_peers.append(peer) 
 
             responsability_plage=assign_dht(my_node, active_peers)
-            print("Responsability plage : ", responsability_plage)            
+            print("Responsability plage :", responsability_plage)            
             print(f"les actives paires sont {active_peers}")
                 
     except Exception as e:
@@ -173,7 +174,7 @@ try:
         action = input("Votre choix : ").lower()
 
         if action == 'j':
-            bootstrap_interaction("JOIN")  # Tester l'action JOIN
+            active_peers = bootstrap_interaction("JOIN", active_peers)  # Tester l'action JOIN
             server_thread = threading.Thread(target=start_peer_server) # Création d'un thread pour gérer la connexion entre 2 pairs avec la fonction start_peer_server
             server_thread.daemon = True
             server_thread.start()
@@ -181,7 +182,7 @@ try:
             attempt_peer_connections(my_node)
             responsability_plage=assign_dht(my_node, active_peers)
             
-            print(responsability_plage)
+            print("Plage de responsabilité :", responsability_plage)
             print("Liste des pairs actifs :", active_peers)
 
             #Tester voir si ca fonctionne
@@ -197,11 +198,11 @@ try:
             #Gerer les déconnexions en envoyant le peer suivant au noeud précédent 
             #Peut être faire un test toute les x secondes pour verifier la connexion
         elif action == 'q':
-            bootstrap_interaction("LEAVE")  # Tester l'action LEAVE
+            bootstrap_interaction("LEAVE", active_peers)  # Tester l'action LEAVE
             break  # Sortie de la boucle après avoir quitté le réseau
         else:
             print("Choix non valide. Veuillez taper 'j' ou 'q'.")
             
 except KeyboardInterrupt:
     print("\nInterruption par l'utilisateur. Déconnexion en cours...")
-    bootstrap_interaction("LEAVE")
+    bootstrap_interaction("LEAVE", active_peers)
