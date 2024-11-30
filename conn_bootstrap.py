@@ -4,12 +4,12 @@ import json
 import sys
 from recup_ip import generate_key
 import msgpack
-from dht import assign_dht, request_dht,handle_dht, send_dht_local
+from dht import assign_dht, request_dht,handle_dht, send_dht_local,create_message
 
 
 BOOTSTRAP_HOST = '127.0.0.1'  # Adresse du serveur bootstrap
 BOOTSTRAP_PORT = 5001     # Port du bootstrap
-PEER_PORT = 7001      # Port d'écoute du pair
+PEER_PORT = 7002      # Port d'écoute du pair
 
 active_peers = []  # Liste des pairs actifs
 
@@ -28,6 +28,7 @@ def bootstrap_interaction(action :str, active_peers : list) -> None :
         return
 
     try:
+        global dht_local
         # Création d'un objet socket pour la communication réseau.
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s: # socket.AF_INET : utilisation du protocole IPv4 & socket.SOCK_STREAM : TCP (Transmission Control Protocol)
             s.connect((BOOTSTRAP_HOST, BOOTSTRAP_PORT)) # Connexion au bootstrap
@@ -49,10 +50,15 @@ def bootstrap_interaction(action :str, active_peers : list) -> None :
             elif action == "LEAVE":
                 response = s.recv(1024).decode('utf-8') # Réception du message envoyé par le bootstrap
                 attempt_peer_connections(my_node)
+                active_peers = sorted(active_peers, key=lambda peer: int(peer[0], 16))
                 print(response)  # Afficher le message "Send your port for LEAVE"
                 s.sendall(str(PEER_PORT).encode('utf-8'))  # Envoi du port d'écoute
                 
                 response = s.recv(1024).decode('utf-8')
+                if responsability_plage[1] == None :
+                    dht_local = send_dht_local(dht_local,active_peers[1],responsability_plage[0],responsability_plage[1])
+                else :
+                    dht_local = send_dht_local(dht_local,active_peers[0],responsability_plage[0],responsability_plage[1])
                 print(f"Réponse reçue du Bootstrap : {response}")
 
     except Exception as e:
@@ -179,7 +185,7 @@ try:
         print("\nActions disponibles :")
         print("1. Tapez 'j' pour rejoindre le réseau.")
         print("2. Tapez 'q' pour quitter le réseau.")
-        
+        print("3. Tapez 'a' pour ajouter un fichier")
         action = input("Votre choix : ").lower()
 
         if action == 'j':
@@ -212,6 +218,13 @@ try:
         elif action == 'q':
             bootstrap_interaction("LEAVE", active_peers)  # Tester l'action LEAVE
             break  # Sortie de la boucle après avoir quitté le réseau
+        elif action == 'a' :
+            fichier = "bootstrap.py"
+            fichier_coder = create_message(fichier, my_node)
+            data= {"action":"add_file", "data": fichier_coder}
+            dht_local=handle_dht(my_node,active_peers,data, dht_local, responsability_plage)
+        elif action == 'p':
+            print(dht_local)
         else:
             print("Choix non valide. Veuillez taper 'j' ou 'q'.")
             
