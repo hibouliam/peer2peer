@@ -59,7 +59,6 @@ def create_message(fichier: str, peer: list) -> dict:
             "key": key,
             "localisations": peer
         }
-        print(message)
         return message
     except FileNotFoundError:
         print(f"Erreur : le fichier '{fichier}' est introuvable.")
@@ -68,15 +67,20 @@ def create_message(fichier: str, peer: list) -> dict:
 def add_file_to_dht_local(dht:dict, key:str, localisations:list)->  dict :
     """
     Ajoute un fichier à la DHT local.
+    Type de la dht {'key':[peer1,peer2...]}
     """
-    if key in dht :
-        for peer in localisations :
-            if peer not in dht[key] :
+    
+    
+    print(localisations)
+    if key in dht:
+        for peer in localisations:
+            if peer not in dht[key]:  
                 dht[key].append(peer)
-        return dht
-    else :
+    else:
+        # Initialiser avec des listes pour chaque peer
         dht[key]=localisations
-        return dht
+    
+    return dht
 
 def send_file(message:bytes, key:str, active_peers: list, start:int, end : int) -> None:
     """
@@ -85,14 +89,15 @@ def send_file(message:bytes, key:str, active_peers: list, start:int, end : int) 
     try :
         active_peers = sorted(active_peers, key=lambda peer: int(peer[0], 16))
 
-        if int(key, 16) < end or len(active_peers)<=1: 
+        if end is None :
             target_peer = active_peers[0]
         else:
-            target_peer = active_peers[1]
+            if int(key, 16) < end or len(active_peers)<=1: 
+                target_peer = active_peers[0]
+            else:
+                target_peer = active_peers[1]
         ip = target_peer[1]
         port = target_peer[2]
-        print(f"tar{target_peer}")
-        print(msgpack.unpackb(message),ip,port)
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client_socket:
             client_socket.connect((ip, port))
             client_socket.sendall(message)
@@ -107,7 +112,6 @@ def request_dht(peer : list, active_peers: list, responsability_plage: tuple) ->
         start,end=responsability_plage
         request_message = {"action": "request_dht", "data": {"start": str(start), "end": str(end), "peer" : peer}}
         packed_request = msgpack.packb(request_message)
-        print(responsability_plage)
         for peer in active_peers :
             ip = peer[1]
             port = peer[2]
@@ -127,16 +131,13 @@ def send_dht_local(dht:dict,peer:list, start:int, end:int) -> dict :
     try:
         filtered_dht = {}
         for key, value in dht.items() :
-            print(key,value)
             key_int = int(str(key), 16)
             if end is not None :
                 if start <= key_int <= end:
                     filtered_dht[key] = value
-                    print(filtered_dht)
             else :
                 if start<=key_int :
                     filtered_dht[key] = value
-                    print(filtered_dht)
         message= {"action":"send_dht", "data": {"dht":filtered_dht}}
         msgpack_dht = msgpack.packb(message)
         ip = peer[1]
@@ -164,11 +165,9 @@ def handle_dht(peer:list, active_peers: list, received_data:dict,dht_local:dict,
     Gère les messages recu qui ont pour but de modifier a dht
     """
     try :
-        print("coucou")
         action = received_data.get("action")
         data = received_data.get("data")
         if action == "request_dht" :
-            print("coucou")
             start_recu = int(data.get("start"))
             end_recu = data.get("end")
             if end_recu in (None, "None"): 
@@ -176,13 +175,11 @@ def handle_dht(peer:list, active_peers: list, received_data:dict,dht_local:dict,
             else:
                 end_recu = int(end_recu)
             start_peer,end_peer= responsability_plage
-            
-            print(start_recu, end_recu, start_peer, end_peer)
+        
             if end_recu is None or end_peer is None : 
                 if end_peer is None and start_recu >= start_peer : 
                     
                     peer = data.get("peer")
-                    print(peer)
                     return send_dht_local(dht_local, peer, start_recu, end_recu)
                 else : 
                     return dht_local
@@ -190,24 +187,19 @@ def handle_dht(peer:list, active_peers: list, received_data:dict,dht_local:dict,
                 if (start_recu>=start_peer and end_recu<=end_peer) : 
                     
                     peer = data.get("peer")
-                    print(peer)
-                    print(type(peer))
-                    print(peer[1])
                     return send_dht_local(dht_local, peer, start_recu, end_recu)
-            # if (start_recu>=start_peer and end_recu<=end_peer) or (end_recu is None and end_peer is None and start_recu>start_peer):
-            #     peer = data.get("peer")
-            #     return send_dht_local(dht_local, peer, start_recu, end_recu)
                 else:
                     return dht_local
                 
         if action == "add_file":
             key=data.get("key")
             key_int=int(key,16)
+            print(key_int)
             start,end=assign_dht(peer, active_peers)
             if end is not None :
                 if (key_int>=start and key_int<end) or (end is None and key_int>=start):
                     localisations = data.get("localisations")
-                    return add_file_to_dht_local(dht_local, key, localisations)
+                    return add_file_to_dht_local(dht_local, key, [localisations])
                 else :
                     message = msgpack.packb(received_data)
                     send_file(message, key,active_peers, start, end)
@@ -215,7 +207,7 @@ def handle_dht(peer:list, active_peers: list, received_data:dict,dht_local:dict,
                 
             if (end is None and key_int>=start): 
                 localisations = data.get("localisations")
-                return add_file_to_dht_local(dht_local, key, localisations)
+                return add_file_to_dht_local(dht_local, key, [localisations])
             else :
                 message = msgpack.packb(received_data)
                 send_file(message, key,active_peers, start, end)
