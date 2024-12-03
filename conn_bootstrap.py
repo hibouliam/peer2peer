@@ -9,7 +9,7 @@ from dht import assign_dht, request_dht,handle_dht, send_dht_local,create_messag
 
 BOOTSTRAP_HOST = '127.0.0.1'  # Adresse du serveur bootstrap
 BOOTSTRAP_PORT = 5001     # Port du bootstrap
-PEER_PORT = 7002      # Port d'écoute du pair
+PEER_PORT = 7003      # Port d'écoute du pair
 
 active_peers = []  # Liste des pairs actifs
 
@@ -94,14 +94,12 @@ def handle_communication_between_peer(conn):
         global dht_local
         global responsability_plage
         data = msgpack.unpackb(conn.recv(1024))
-        print(f"data:{data}")
+        #print(f"data:{data}")
         if data.get("action") == "Connection with the peer" :
             add_neighbor_peer(data, my_node, active_peers)
         else :
             dht_local = handle_dht(my_node,active_peers,data, dht_local, responsability_plage)
             responsability_plage = assign_dht(my_node, active_peers)
-            print(responsability_plage)
-            print(dht_local)
             return dht_local
         
     except Exception as e:
@@ -158,16 +156,10 @@ def add_neighbor_peer(data: str, my_node : list, active_peers:list) -> None:
                                 count +=1 
                                 active_peers.remove(peer) 
                             else :
-                                print(f"les actives paires {active_peers}")
-                                #responsability_plage=assign_dht(peer, active_peers)
-                                #print("Plage de responsabilité : ", responsability_plage)  
-                                #request_dht(my_node, active_peers, responsability_plage)
                                 return 
                         else :
                             active_peers.append(peer) 
-
-
-                    
+           
     except Exception as e:
         print(f"Erreur lors de l'ajout d'un pair voisin : {e}")
 
@@ -186,6 +178,7 @@ try:
         print("1. Tapez 'j' pour rejoindre le réseau.")
         print("2. Tapez 'q' pour quitter le réseau.")
         print("3. Tapez 'a' pour ajouter un fichier")
+        print("4. Tapez 'p' pour afficher les données du noeud")
         action = input("Votre choix : ").lower()
 
         if action == 'j':
@@ -199,8 +192,6 @@ try:
 
             request_dht(my_node, active_peers, responsability_plage)
             
-            print("Plage de responsabilité :", responsability_plage)
-            print("Liste des pairs actifs :", active_peers)
 
             #Tester voir si ca fonctionne
             #Si ca fonctionne faut faire une fonction pour dire qu'il est responsable de la plage de lui à son voisin suivant
@@ -224,7 +215,9 @@ try:
             data= {"action":"add_file", "data": fichier_coder}
             dht_local=handle_dht(my_node,active_peers,data, dht_local, responsability_plage)
         elif action == 'p':
-            print(dht_local)
+            print("Plage de responsabilité :", responsability_plage)
+            print("Liste des pairs actifs :", active_peers)
+            print("dht local :",dht_local)
         else:
             print("Choix non valide. Veuillez taper 'j' ou 'q'.")
             
