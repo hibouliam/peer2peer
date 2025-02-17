@@ -9,7 +9,7 @@ from dht import assign_dht, request_dht,handle_dht, send_dht_local,create_messag
 
 BOOTSTRAP_HOST = '127.0.0.1'  # Adresse du serveur bootstrap
 BOOTSTRAP_PORT = 5001     # Port du bootstrap
-PEER_PORT = 7003      # Port d'écoute du pair
+PEER_PORT = 7002      # Port d'écoute du pair
 
 active_peers = []  # Liste des pairs actifs
 

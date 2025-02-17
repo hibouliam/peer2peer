@@ -1,6 +1,8 @@
 import msgpack # type: ignore
 import socket
+import hashlib
 from recup_ip import generate_key
+from security import compute_pow
 
 active_peers =[['8d63f136a918f183a00e2d6059d09e1493a4286a9c34a41d05c522afde3ab5834fc99aa62bf6fe7867739749015c63b5135f2c7091bb4078d1cc27d8cdaecb87', '127.0.0.1', 7003]]
 peer = ['b048dee8bf0ca95792006780bf7cff3a68cb4e37ff35b36313bd83576b02021ce7c0410b8a35613f6ae26507e788f7d4d6af389ec716a9c95729b486e063b20e', '127.0.0.1', 7004]
@@ -193,6 +195,17 @@ def handle_dht(peer:list, active_peers: list, received_data:dict,dht_local:dict,
                 
         if action == "add_file":
             key=data.get("key")
+            nonce = data.get("nonce")  # Récupération du nonce
+            difficulty = 4  # Doit être le même que celui utilisé dans compute_pow()
+
+            # Vérification du PoW
+            hash_value = hashlib.sha256(f"{key}{nonce}".encode()).hexdigest()
+            if nonce is None or hash_value[:difficulty] != "0" * difficulty:
+                print(f"❌ PoW invalide ! Rejet du fichier avec clé {key}")
+                return dht_local
+
+            print(f"✅ PoW valide ! Le fichier avec clé {key} est accepté.")
+            
             key_int=int(key,16)
             print(key_int)
             start,end=assign_dht(peer, active_peers)
@@ -220,19 +233,22 @@ def handle_dht(peer:list, active_peers: list, received_data:dict,dht_local:dict,
     except Exception as e:
         print(f"problème avec la handle_dht : {e}")
 
-'''
-Lorsqu'un pair se connecte il demande la dht en fonction de ce qui est assigné
-Donc étape 1 connexion :avoir sa liste active peer 
-                        puis faire la fonction assign_dht pour avoir start et end
-                        Demander la dht a ses pairs avec un start et end grâce a requiert_dht(en fonction de son assign_dht)                        
-                        Intégration de la dht recu grace dans la dht_local grace à handle_dht
-            
-        pair demande dht : Réajuste son start et end grâce à assign_dht
-                           Envoie + supprime de de la dht en fonction du start et end avec la fonction send_dht 
-                           
-                         
 
-            déconnexion : Envoie toute sa dht au pair concerné 
-
-
-'''
+def create_message(fichier: str, peer: list) -> dict:
+    """
+    Crée un message contenant la clé générée pour un fichier, les localisations et la preuve de travail.
+    """
+    try:
+        with open(fichier, "rb") as f:
+            file_content = f.read()
+        key = generate_key(str(file_content))
+        nonce = compute_pow(key, difficulty=4)  # Génère un nonce valide
+        message = {
+            "key": key,
+            "localisations": peer,
+            "nonce": nonce  # Ajoute le nonce pour prouver le PoW
+        }
+        return message
+    except FileNotFoundError:
+        print(f"Erreur : le fichier '{fichier}' est introuvable.")
+        return {}
