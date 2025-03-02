@@ -4,17 +4,19 @@ import json
 import sys
 from recup_ip import generate_key
 import msgpack
-from dht import assign_dht, request_dht,handle_dht, send_dht_local,create_message
-
+from dht import assign_dht, request_dht,handle_dht, send_dht_local,create_signed_message, create_message
+from security import generate_key_pair
 
 BOOTSTRAP_HOST = '127.0.0.1'  # Adresse du serveur bootstrap
 BOOTSTRAP_PORT = 5001     # Port du bootstrap
-PEER_PORT = 7002      # Port d'écoute du pair
+PEER_PORT = 7011     # Port d'écoute du pair
 
 active_peers = []  # Liste des pairs actifs
 
 my_node=[generate_key(f'127.0.0.1:{PEER_PORT}'),'127.0.0.1',PEER_PORT]
 dht_local = {}
+
+private_key, public_key = generate_key_pair()
 
 def bootstrap_interaction(action :str, active_peers : list) -> None : 
     """
@@ -56,9 +58,9 @@ def bootstrap_interaction(action :str, active_peers : list) -> None :
                 
                 response = s.recv(1024).decode('utf-8')
                 if responsability_plage[1] == None :
-                    dht_local = send_dht_local(dht_local,active_peers[1],responsability_plage[0],responsability_plage[1])
+                    dht_local = send_dht_local(dht_local,active_peers[1],responsability_plage[0],responsability_plage[1], private_key)
                 else :
-                    dht_local = send_dht_local(dht_local,active_peers[0],responsability_plage[0],responsability_plage[1])
+                    dht_local = send_dht_local(dht_local,active_peers[0],responsability_plage[0],responsability_plage[1], private_key)
                 print(f"Réponse reçue du Bootstrap : {response}")
 
     except Exception as e:
@@ -85,7 +87,6 @@ def start_peer_server():
         handle_communication_between_peer(conn)
 
 
-
 def handle_communication_between_peer(conn):
     """
     Gère la communication entre 2 pairs. Ici, réception et affichage des données envoyées
@@ -93,12 +94,43 @@ def handle_communication_between_peer(conn):
     try:
         global dht_local
         global responsability_plage
-        data = msgpack.unpackb(conn.recv(1024))
-        #print(f"data:{data}")
+
+        # 🔹 Réception des données en plusieurs morceaux
+        chunks = []
+        while True:
+            chunk = conn.recv(1024)
+            if not chunk:
+                break  # 🔹 Fin de la transmission
+            chunks.append(chunk)
+
+        full_data = b"".join(chunks)  # 🔹 Reconstruction complète du message
+
+        if not full_data:
+            print("❌ Aucune donnée reçue, connexion fermée par le pair distant")
+            return  # Sortie de la fonction
+
+        print(f"📥 Données brutes reçues ({len(full_data)} octets) : {full_data[:200]}...")  # 🔹 Affichage des premiers caractères pour debug
+
+        data = msgpack.unpackb(full_data) 
+
         if data.get("action") == "Connection with the peer" :
             add_neighbor_peer(data, my_node, active_peers)
+        
+        # elif data.get("action") == "verify_pow":
+        #     # 🔹 Vérification de la preuve de travail demandée par un pair
+        #     key = data.get("key")
+        #     nonce = data.get("nonce")
+        #     difficulty = data.get("difficulty", 4)  # Valeur par défaut
+
+        #     is_valid = verify_pow(key, nonce, difficulty)
+
+        #     # 🔹 Envoi de la réponse au pair demandeur
+        #     response = msgpack.packb({"valid": is_valid})
+        #     conn.sendall(response)
+        #     print(f"🔎 PoW vérifié : {'✅ Valide' if is_valid else '❌ Invalide'}")
+
         else :
-            dht_local = handle_dht(my_node,active_peers,data, dht_local, responsability_plage)
+            dht_local = handle_dht(my_node,active_peers,data, dht_local, responsability_plage, private_key)
             responsability_plage = assign_dht(my_node, active_peers)
             return dht_local
         
@@ -122,6 +154,7 @@ def attempt_peer_connections(my_node : list):
                 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                     s.connect((peer_ip, peer_port)) # connexion au pair
                     message = {"action": "Connection with the peer", "data": [my_node, active_peers]}
+                    message = create_signed_message(message, private_key)  # 🔹 Ajoute la signature
                     s.sendall(msgpack.packb(message))
             except Exception as e:
                 print(f"Peer connection error {peer_ip}:{peer_port} : {e}")
@@ -190,30 +223,17 @@ try:
             attempt_peer_connections(my_node)
             responsability_plage=assign_dht(my_node, active_peers)
 
-            request_dht(my_node, active_peers, responsability_plage)
+            request_dht(my_node, active_peers, responsability_plage, private_key)
             
 
-            #Tester voir si ca fonctionne
-            #Si ca fonctionne faut faire une fonction pour dire qu'il est responsable de la plage de lui à son voisin suivant
-            #Faire deux exceptions : - si ces deux voisins sont plus grands alors il est reponsable de 0 au voisin le plus proche de lui (par exemple si 1 a comme voisin 2 et 5 alors il responsable de 0 à 2 )
-                                   # - si ces deux voisins sont plus petits alors il est reponsable  de lui à +infini (par exemple si 5 a comme voisin 1 et 4 alors il est responable de 5 à +infini)
-            #Et pour l'écriture de la dht je propose soit dictionnaire map (dht={"file1":["12 7.0.0.1:8000","127.0.0.1:5000"]})  
-            #Ou alors directement dans un fichier json  / on peut regarder messagepack(facile) ou protocol buffer (dfficle mais plus sécurisé)
-            #Perso je pense que peu importe lequel on utilise on pourra changer facilement pcq ca reste un peu la même chose
-
-            #Ca c'est autre chose
-            #Enregistrer l'adresse ip de deux paires (celui a qui il envoie et celui qui recoit le message)
-            #Gerer les déconnexions en envoyant le peer suivant au noeud précédent 
-            #Peut être faire un test toute les x secondes pour verifier la connexion
-            #Mettre en
         elif action == 'q':
             bootstrap_interaction("LEAVE", active_peers)  # Tester l'action LEAVE
             break  # Sortie de la boucle après avoir quitté le réseau
         elif action == 'a' :
-            fichier = "bootstrap.py"
-            fichier_coder = create_message(fichier, my_node)
-            data= {"action":"add_file", "data": fichier_coder}
-            dht_local=handle_dht(my_node,active_peers,data, dht_local, responsability_plage)
+            fichier = "main.py"
+            fichier_coder = create_message(fichier, my_node, private_key, public_key)
+            data = {"action":"add_file", "data": fichier_coder}
+            dht_local=handle_dht(my_node, active_peers, data, dht_local, responsability_plage, private_key)
         elif action == 'p':
             print("Plage de responsabilité :", responsability_plage)
             print("Liste des pairs actifs :", active_peers)
