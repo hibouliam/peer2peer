@@ -4,12 +4,16 @@ import json
 import sys
 from recup_ip import generate_key
 import msgpack
-from dht import assign_dht, request_dht,handle_dht, send_dht_local,create_message
+from dht import assign_dht, request_dht,handle_dht, send_dht_local,create_add_file_message, create_looking_file_message, request_list_peer_have_file, send_replica_message,create_delete_file_message
+from file_share import request_files,handle_files
+from file_emplacement import add_file_to_network
+import time
+import os
 
 
 BOOTSTRAP_HOST = '127.0.0.1'  # Adresse du serveur bootstrap
 BOOTSTRAP_PORT = 5001     # Port du bootstrap
-PEER_PORT = 7003      # Port d'écoute du pair
+PEER_PORT = 7002      # Port d'écoute du pair
 
 active_peers = []  # Liste des pairs actifs
 
@@ -55,6 +59,16 @@ def bootstrap_interaction(action :str, active_peers : list) -> None :
                 s.sendall(str(PEER_PORT).encode('utf-8'))  # Envoi du port d'écoute
                 
                 response = s.recv(1024).decode('utf-8')
+                if os.path.exists(".storage"):
+                    for f in os.listdir(".storage"):
+                        if os.path.isfile(os.path.join(".storage", f)):
+                            key=os.path.splitext(f)[0]
+                            data= create_delete_file_message(key,my_node)
+                            print(data)
+                            message= {"action" : "delete_peer_dht", "data" : data}
+                            dht_local=handle_dht(my_node,active_peers,message, dht_local, responsability_plage)
+
+
                 if responsability_plage[1] == None :
                     dht_local = send_dht_local(dht_local,active_peers[1],responsability_plage[0],responsability_plage[1])
                 else :
@@ -94,12 +108,37 @@ def handle_communication_between_peer(conn):
         global dht_local
         global responsability_plage
         data = msgpack.unpackb(conn.recv(1024))
-        #print(f"data:{data}")
+        print(f"data:{data}")
+        
         if data.get("action") == "Connection with the peer" :
             add_neighbor_peer(data, my_node, active_peers)
-        else :
+        if data.get("action") == "request_file" :
+            handle_files(data)
+            return dht_local
+        if data.get("action") == "request_dht" or data.get("action") == "add_file" or data.get("action") == "send_dht" or data.get("action") == "delete_peer_dht":
+            print(responsability_plage)
             dht_local = handle_dht(my_node,active_peers,data, dht_local, responsability_plage)
             responsability_plage = assign_dht(my_node, active_peers)
+            return dht_local
+        if data.get("action") == "looking_file" :
+            request_list_peer_have_file(my_node,active_peers,data, dht_local, responsability_plage)
+            return dht_local
+        if data.get("action") == "lookin_file" :
+            print("hello")
+            localisation = data.get("data").get("localisation")
+            key = data.get("data").get("key")
+            print(localisation,key)
+            request_files(localisation,key,my_node)
+            return dht_local
+        if data.get("action") == "replica_file" :
+            applicant = data.get("data").get("applicant")
+            key = data.get("data").get("key")
+            print(applicant,key)
+            request_files([applicant],key,my_node, save_directory='.')
+            message= {"action":"add_file", "data": {"key": key,"localisations": my_node}}
+            dht_local=handle_dht(my_node,active_peers,message, dht_local, responsability_plage)
+            return dht_local
+        else :
             return dht_local
         
     except Exception as e:
@@ -179,6 +218,7 @@ try:
         print("2. Tapez 'q' pour quitter le réseau.")
         print("3. Tapez 'a' pour ajouter un fichier")
         print("4. Tapez 'p' pour afficher les données du noeud")
+        print("5. Tapez 'r' pour demander un fichier")
         action = input("Votre choix : ").lower()
 
         if action == 'j':
@@ -189,7 +229,6 @@ try:
             # Se connecter aux autres pairs du réseau
             attempt_peer_connections(my_node)
             responsability_plage=assign_dht(my_node, active_peers)
-
             request_dht(my_node, active_peers, responsability_plage)
             
 
@@ -210,14 +249,23 @@ try:
             bootstrap_interaction("LEAVE", active_peers)  # Tester l'action LEAVE
             break  # Sortie de la boucle après avoir quitté le réseau
         elif action == 'a' :
-            fichier = "bootstrap.py"
-            fichier_coder = create_message(fichier, my_node)
+            fichier = "IMG_20170915_173150.jpg"
+            fichier_coder,key = create_add_file_message(fichier, my_node)
+            add_file_to_network(fichier)
+            time.sleep(5)
+            send_replica_message(my_node,active_peers,key)
             data= {"action":"add_file", "data": fichier_coder}
             dht_local=handle_dht(my_node,active_peers,data, dht_local, responsability_plage)
         elif action == 'p':
             print("Plage de responsabilité :", responsability_plage)
             print("Liste des pairs actifs :", active_peers)
             print("dht local :",dht_local)
+        elif action == 'r' :
+            message=create_looking_file_message("d82976927a30836e3d26fbdc83289539dc65229522676d071b3894e8478af059841e402823a16a394fe1c420483932a9b78ce18dcebe2a582c7fcb7f3faf33a2",my_node)
+            data= {"action":"looking_file", "data": message}
+            request_list_peer_have_file(my_node,active_peers,data, dht_local, responsability_plage)
+            #request_files([['127.0.0.1',7002],['127.0.0.1',7001]],"d82976927a30836e3d26fbdc83289539dc65229522676d071b3894e8478af059841e402823a16a394fe1c420483932a9b78ce18dcebe2a582c7fcb7f3faf33a2",my_node)
+
         else:
             print("Choix non valide. Veuillez taper 'j' ou 'q'.")
             

@@ -2,8 +2,6 @@ import msgpack # type: ignore
 import socket
 from recup_ip import generate_key
 
-active_peers =[['8d63f136a918f183a00e2d6059d09e1493a4286a9c34a41d05c522afde3ab5834fc99aa62bf6fe7867739749015c63b5135f2c7091bb4078d1cc27d8cdaecb87', '127.0.0.1', 7003]]
-peer = ['b048dee8bf0ca95792006780bf7cff3a68cb4e37ff35b36313bd83576b02021ce7c0410b8a35613f6ae26507e788f7d4d6af389ec716a9c95729b486e063b20e', '127.0.0.1', 7004]
 
 def assign_dht(my_node: list,active_peers:list) -> tuple :
     """
@@ -45,11 +43,100 @@ def determine_responsibility(peer_key : int, left_neighbor_key : int, right_neig
 
 
 
-dht = {}  
+############### Demande de localisation des fichiers ##########################
 
-def create_message(fichier: str, peer: list) -> dict:
+def create_looking_file_message(looking_key: str, my_node : list ) -> dict :
     """
-    Crée un message contenant la clé générée pour un fichier et les localisations.
+    Crée un message pour chercher un fichier à la dht
+    """
+    try :
+        message = {
+            "action":"looking_file", #Sert surement a rien a vérifier
+            "key": looking_key,
+            "applicant": my_node
+        }
+        return message
+    except Exception as e:
+        print("Problème lors de create_looking_file_message",e)
+        return {}
+
+def send_localisations(applicant_peer:list, looking_key:str, dht_local:dict) -> None :
+    """
+    Envoie la liste des paires qui ont le fichier recherché ou envoie le fichier n'existe si la key n'existe pas
+    """
+    if looking_key in dht_local:
+        message={"key": looking_key,
+                "localisation": dht_local[looking_key]
+                }
+    else:
+        message={"key": looking_key,
+                "localisation": "n'existe pas"
+                }
+    data= {"action":"lookin_file", "data": message}
+    data_packb = msgpack.packb(data)
+    ip = applicant_peer[1]
+    port = applicant_peer[2]
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client_socket:
+        client_socket.connect((ip, port))
+        client_socket.sendall(data_packb)  
+        
+def request_list_peer_have_file(peer:list, active_peers: list, received_data:dict,dht_local:dict, responsability_plage: tuple ) -> None :
+    data= received_data.get("data")
+    key = data.get("key")
+    key_int=int(key,16)
+    start,end=assign_dht(peer, active_peers)
+    if end is not None :
+        if (key_int>=start and key_int<end) or (end is None and key_int>=start):
+            return send_localisations(data.get("applicant"),key,dht_local)
+        else :
+            message = msgpack.packb(received_data)
+            send_message_close_peer(message, key,active_peers, start, end)
+            return dht_local
+                
+    if (end is None and key_int>=start): 
+        return send_localisations(data.get("applicant"),key,dht_local)
+    else :
+        message = msgpack.packb(received_data)
+        send_message_close_peer(message, key,active_peers, start, end)
+        return dht_local
+    
+############### Gestion de réplica des fichiers ##########################
+
+def create_replica_message(replica_key: str, my_node : list ) -> dict :
+    """
+    Crée un message pour chercher un fichier à la dht
+    """
+    try :
+        message = {
+            "action":"replica_file", #Sert surement a rien a vérifier
+            "key": replica_key,
+            "applicant": my_node
+        }
+        return message
+    except Exception as e:
+        print("Problème lors de create_replica_message",e)
+        return {}
+
+def send_replica_message(my_node:list, active_peers: list, replica_key :str ) -> None :
+    message = create_replica_message(replica_key, my_node)
+    data= {"action":"replica_file", "data": message}
+    msgpack_dht = msgpack.packb(data)
+    for peer in active_peers :
+        ip = peer[1]
+        port = peer[2]
+        print(ip,port)
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client_socket:
+            client_socket.connect((ip, port))
+            client_socket.sendall(msgpack_dht)
+    
+
+
+############### Ajout des fichiers dans la DHT ##########################
+
+def create_add_file_message(fichier: str, peer: list) -> dict:
+    """
+    Crée un message pour ajouter un fichier à la dht
+    contenant la clé générée pour un fichier et les localisations.
     """
     try:
         with open(fichier, "rb") as f:
@@ -59,7 +146,7 @@ def create_message(fichier: str, peer: list) -> dict:
             "key": key,
             "localisations": peer
         }
-        return message
+        return message,key
     except FileNotFoundError:
         print(f"Erreur : le fichier '{fichier}' est introuvable.")
         return {}
@@ -69,7 +156,6 @@ def add_file_to_dht_local(dht:dict, key:str, localisations:list)->  dict :
     Ajoute un fichier à la DHT local.
     Type de la dht {'key':[peer1,peer2...]}
     """
-    
     
     print(localisations)
     if key in dht:
@@ -82,7 +168,46 @@ def add_file_to_dht_local(dht:dict, key:str, localisations:list)->  dict :
     
     return dht
 
-def send_file(message:bytes, key:str, active_peers: list, start:int, end : int) -> None:
+
+############## Suppression d'un pair dans une DHT #######################
+
+def create_delete_file_message(key: str, peer: list) -> dict:
+    """
+    Crée un message pour ajouter un fichier à la dht
+    contenant la clé générée pour un fichier et les localisations.
+    """
+    try:
+        message = {
+            "key": key,
+            "localisations": peer
+        }
+
+        return message
+    except FileNotFoundError:
+        print(f"Erreur :create_delete_file_message.")
+        return {}
+    
+def remove_peer_from_dht(dht: dict, file_key: str, peer_to_remove: tuple):
+    """
+    Supprime un pair spécifique de la DHT pour une clé donnée.
+
+    """
+    if file_key in dht:
+        dht[file_key] = [peer for peer in dht[file_key] if peer != [peer_to_remove]]
+        
+        # Supprimer la clé si plus aucun pair n'a ce fichier
+        if not dht[file_key]:
+            del dht[file_key]
+
+        print(f"Pair {peer_to_remove} supprimé de {file_key}")
+        return dht
+    else:
+        print(f"Clé {file_key} introuvable dans la DHT.")
+        return dht
+
+############### Envoie de message entre paires ##########################
+
+def send_message_close_peer(message:bytes, key:str, active_peers: list, start:int, end : int) -> None:
     """
     Envoie le fichier a son plus proche voisin
     """
@@ -103,6 +228,8 @@ def send_file(message:bytes, key:str, active_peers: list, start:int, end : int) 
             client_socket.sendall(message)
     except Exception as e:
         print("Problème lors de l'envoi du fichier",e)
+
+############### Gestion de la dht en fonction des connnexions et déconnexions ##########################
 
 def request_dht(peer : list, active_peers: list, responsability_plage: tuple) -> None:
     """
@@ -130,6 +257,7 @@ def send_dht_local(dht:dict,peer:list, start:int, end:int) -> dict :
     """
     try:
         filtered_dht = {}
+        print(dht)
         for key, value in dht.items() :
             key_int = int(str(key), 16)
             if end is not None :
@@ -138,10 +266,12 @@ def send_dht_local(dht:dict,peer:list, start:int, end:int) -> dict :
             else :
                 if start<=key_int :
                     filtered_dht[key] = value
+        print(filtered_dht)
         message= {"action":"send_dht", "data": {"dht":filtered_dht}}
         msgpack_dht = msgpack.packb(message)
         ip = peer[1]
         port = peer[2]
+        print(ip,port)
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client_socket:
             client_socket.connect((ip, port))
             client_socket.sendall(msgpack_dht)
@@ -160,58 +290,88 @@ def merge_dht(dht_local:dict, dht_recu:dict) -> dict :
         dht_local=add_file_to_dht_local(dht_local,key,localisations)
     return dht_local
 
+############### Gestion des messages recu ##########################
+
 def handle_dht(peer:list, active_peers: list, received_data:dict,dht_local:dict, responsability_plage: tuple) -> dict :
     """
-    Gère les messages recu qui ont pour but de modifier a dht
+    Gère les messages recu qui ont pour but de modifier a dht 
     """
     try :
         action = received_data.get("action")
         data = received_data.get("data")
+        print(action,data)
         if action == "request_dht" :
+            print("j")
             start_recu = int(data.get("start"))
             end_recu = data.get("end")
+            peer = data.get("peer")
+            
             if end_recu in (None, "None"): 
                 end_recu = None 
             else:
                 end_recu = int(end_recu)
             start_peer,end_peer= responsability_plage
-        
-            if end_recu is None or end_peer is None : 
-                if end_peer is None and start_recu >= start_peer : 
-                    
-                    peer = data.get("peer")
-                    return send_dht_local(dht_local, peer, start_recu, end_recu)
-                else : 
-                    return dht_local
-            else : 
-                if (start_recu>=start_peer and end_recu<=end_peer) : 
-                    
-                    peer = data.get("peer")
+            print(start_peer,end_peer)
+            # Cas où end_peer est None (je suis responsable de toute la plage restante)
+            if end_peer is None:
+                if start_recu >= start_peer:
+                    print(f"Sending DHT to {peer}")
                     return send_dht_local(dht_local, peer, start_recu, end_recu)
                 else:
+                    print("Request does not match my responsibility range.")
                     return dht_local
+
+            # Cas où end_recu est None (le demandeur ne connaît pas sa fin)
+            if end_recu is None:
+                if start_recu >= start_peer:
+                    print(f"Sending partial DHT to {peer}")
+                    return send_dht_local(dht_local, peer, start_recu, end_peer)
+                else:
+                    print("Request does not match my responsibility range.")
+                    return dht_local
+
+            # Cas général : Vérifier si les plages se chevauchent
+            if (start_recu >= start_peer and (end_recu is None or end_recu <= end_peer)):
+                print(f"Sending matched DHT to {peer}")
+                return send_dht_local(dht_local, peer, start_recu, end_recu)
+            
+            print("No matching DHT range found.")
+            return dht_local
                 
-        if action == "add_file":
+        if action == "add_file" or action == "delete_peer_dht":
+            print("hel")
+            print(data)
             key=data.get("key")
             key_int=int(key,16)
+            print(key)
             print(key_int)
             start,end=assign_dht(peer, active_peers)
+            print(start,end)
             if end is not None :
                 if (key_int>=start and key_int<end) or (end is None and key_int>=start):
-                    localisations = data.get("localisations")
-                    return add_file_to_dht_local(dht_local, key, [localisations])
+                    if action  == "add_file" :
+                        localisations = data.get("localisations")
+                        return add_file_to_dht_local(dht_local, key, [localisations])
+                    if action  == "delete_peer_dht" :
+                        peer_to_remove = data.get("localisations")
+                        return remove_peer_from_dht(dht_local, key, peer_to_remove)
                 else :
                     message = msgpack.packb(received_data)
-                    send_file(message, key,active_peers, start, end)
+                    send_message_close_peer(message, key,active_peers, start, end)
                     return dht_local
                 
             if (end is None and key_int>=start): 
-                localisations = data.get("localisations")
-                return add_file_to_dht_local(dht_local, key, [localisations])
+                if action  == "add_file" :
+                    localisations = data.get("localisations")
+                    return add_file_to_dht_local(dht_local, key, [localisations])
+                if action  == "delete_peer_dht" :
+                    peer_to_remove = data.get("localisations")
+                    return remove_peer_from_dht (dht_local, key, peer_to_remove)
             else :
                 message = msgpack.packb(received_data)
-                send_file(message, key,active_peers, start, end)
+                send_message_close_peer(message, key,active_peers, start, end)
                 return dht_local
+            
         if action == "send_dht":
             dht_recu=data.get("dht", {})
             return merge_dht(dht_local, dht_recu)
