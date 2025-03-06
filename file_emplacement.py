@@ -2,9 +2,8 @@ import os
 import shutil
 from recup_ip import generate_key
 
-STORAGE_DIR = ".storage"
 
-def add_file_to_network(file_path):
+def add_file_to_network(file_path, STORAGE_DIR):
     if not os.path.exists(STORAGE_DIR):
         os.makedirs(STORAGE_DIR) 
 

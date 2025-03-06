@@ -9,11 +9,11 @@ from file_share import request_files,handle_files
 from file_emplacement import add_file_to_network
 import time
 import os
-
+import sys
 
 BOOTSTRAP_HOST = '127.0.0.1'  # Adresse du serveur bootstrap
 BOOTSTRAP_PORT = 5001     # Port du bootstrap
-PEER_PORT = 7002      # Port d'écoute du pair
+PEER_PORT = int(sys.argv[1])      # Port d'écoute du pair
 
 active_peers = []  # Liste des pairs actifs
 
@@ -59,9 +59,9 @@ def bootstrap_interaction(action :str, active_peers : list) -> None :
                 s.sendall(str(PEER_PORT).encode('utf-8'))  # Envoi du port d'écoute
                 
                 response = s.recv(1024).decode('utf-8')
-                if os.path.exists(".storage"):
-                    for f in os.listdir(".storage"):
-                        if os.path.isfile(os.path.join(".storage", f)):
+                if os.path.exists(f'.storage{PEER_PORT}'):
+                    for f in os.listdir(f'.storage{PEER_PORT}'):
+                        if os.path.isfile(os.path.join(f'.storage{PEER_PORT}', f)):
                             key=os.path.splitext(f)[0]
                             data= create_delete_file_message(key,my_node)
                             print(data)
@@ -251,7 +251,7 @@ try:
         elif action == 'a' :
             fichier = "IMG_20170915_173150.jpg"
             fichier_coder,key = create_add_file_message(fichier, my_node)
-            add_file_to_network(fichier)
+            add_file_to_network(fichier,f'.storage{PEER_PORT}')
             time.sleep(5)
             send_replica_message(my_node,active_peers,key)
             data= {"action":"add_file", "data": fichier_coder}
