@@ -84,7 +84,9 @@ def request_list_peer_have_file(peer:list, active_peers: list, received_data:dic
     data= received_data.get("data")
     key = data.get("key")
     key_int=int(key,16)
+    print(key_int)
     start,end=assign_dht(peer, active_peers)
+    print(start,end)
     if end is not None :
         if (key_int>=start and key_int<end) or (end is None and key_int>=start):
             return send_localisations(data.get("applicant"),key,dht_local)
@@ -102,7 +104,7 @@ def request_list_peer_have_file(peer:list, active_peers: list, received_data:dic
     
 ############### Gestion de réplica des fichiers ##########################
 
-def create_replica_message(replica_key: str, my_node : list ) -> dict :
+def create_replica_message(replica_key: str, my_node : list, count_peers_received ) -> dict :
     """
     Crée un message pour chercher un fichier à la dht
     """
@@ -110,15 +112,16 @@ def create_replica_message(replica_key: str, my_node : list ) -> dict :
         message = {
             "action":"replica_file", #Sert surement a rien a vérifier
             "key": replica_key,
-            "applicant": my_node
+            "applicant": my_node,
+            "count_peers_received" :  count_peers_received
         }
         return message
     except Exception as e:
         print("Problème lors de create_replica_message",e)
         return {}
 
-def send_replica_message(my_node:list, active_peers: list, replica_key :str ) -> None :
-    message = create_replica_message(replica_key, my_node)
+def send_replica_message(my_node:list, active_peers: list, replica_key :str, count_peers_received = 0 ) -> None :
+    message = create_replica_message(replica_key, my_node, count_peers_received)
     data= {"action":"replica_file", "data": message}
     msgpack_dht = msgpack.packb(data)
     for peer in active_peers :
@@ -216,7 +219,8 @@ def send_message_close_peer(message:bytes, key:str, active_peers: list, start:in
         active_peers = sorted(active_peers, key=lambda peer: int(peer[0], 16))
 
         if end is None :
-            target_peer = active_peers[0]
+            print("coucou")
+            target_peer = active_peers[1]
         else:
             if int(key, 16) < end or len(active_peers)<=1: 
                 target_peer = active_peers[0]
@@ -224,6 +228,7 @@ def send_message_close_peer(message:bytes, key:str, active_peers: list, start:in
                 target_peer = active_peers[1]
         ip = target_peer[1]
         port = target_peer[2]
+        print(ip,port)
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client_socket:
             client_socket.connect((ip, port))
             client_socket.sendall(message)

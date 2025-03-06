@@ -127,6 +127,7 @@ def handle_communication_between_peer(conn):
             responsability_plage = assign_dht(my_node, active_peers)
             return dht_local
         if data.get("action") == "looking_file" :
+            time.sleep(1)
             request_list_peer_have_file(my_node,active_peers,data, dht_local, responsability_plage)
             return dht_local
         if data.get("action") == "lookin_file" :
@@ -139,11 +140,21 @@ def handle_communication_between_peer(conn):
         if data.get("action") == "replica_file" :
             applicant = data.get("data").get("applicant")
             key = data.get("data").get("key")
-            print(applicant,key)
-            request_files([applicant],key,my_node, save_directory=f'.storage{PEER_PORT}')
-            message= {"action":"add_file", "data": {"key": key,"localisations": my_node}}
-            dht_local=handle_dht(my_node,active_peers,message, dht_local, responsability_plage)
-            return dht_local
+            count_peers_received = data.get("data").get("count_peers_received")
+            print(applicant,key,count_peers_received)
+            if count_peers_received < 3 and any(
+                os.path.splitext(f)[0] == key for f in os.listdir(f".storage{PEER_PORT}")):
+
+                print(active_peers[count_peers_received%2],key)
+                count_peers_received += 1
+                print(count_peers_received%2)
+                send_replica_message(my_node,[active_peers[count_peers_received%2]],key, count_peers_received )
+                return dht_local
+            else : 
+                request_files([applicant],key,my_node, save_directory=f'.storage{PEER_PORT}')
+                message= {"action":"add_file", "data": {"key": key,"localisations": my_node}}
+                dht_local=handle_dht(my_node,active_peers,message, dht_local, responsability_plage)
+                return dht_local
         else :
             return dht_local
         
@@ -255,7 +266,7 @@ try:
             bootstrap_interaction("LEAVE", active_peers)  # Tester l'action LEAVE
             break  # Sortie de la boucle après avoir quitté le réseau
         elif action == 'a' :
-            fichier = "peer.py"
+            fichier = "IMG_20170915_173150.jpg"
             fichier_coder,key = create_add_file_message(fichier, my_node)
             add_file_to_network(fichier,f'.storage{PEER_PORT}')
             time.sleep(1)
@@ -267,7 +278,7 @@ try:
             print("Liste des pairs actifs :", active_peers)
             print("dht local :",dht_local)
         elif action == 'r' :
-            message=create_looking_file_message("cfc87522eac417980a99725ef96b9bff72e6161cff21aef39efa732b2b684ed83151f92e958098912ce908bbd970096d72a819f1228a3ab1383d17d517e0a9e4",my_node)
+            message=create_looking_file_message("d82976927a30836e3d26fbdc83289539dc65229522676d071b3894e8478af059841e402823a16a394fe1c420483932a9b78ce18dcebe2a582c7fcb7f3faf33a2",my_node)
             data= {"action":"looking_file", "data": message}
             request_list_peer_have_file(my_node,active_peers,data, dht_local, responsability_plage)
             #request_files([['127.0.0.1',7002],['127.0.0.1',7001]],"d82976927a30836e3d26fbdc83289539dc65229522676d071b3894e8478af059841e402823a16a394fe1c420483932a9b78ce18dcebe2a582c7fcb7f3faf33a2",my_node)
