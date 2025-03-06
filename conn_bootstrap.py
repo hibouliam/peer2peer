@@ -10,6 +10,7 @@ from file_emplacement import add_file_to_network
 import time
 import os
 import sys
+import shutil
 
 BOOTSTRAP_HOST = '127.0.0.1'  # Adresse du serveur bootstrap
 BOOTSTRAP_PORT = 5001     # Port du bootstrap
@@ -48,6 +49,8 @@ def bootstrap_interaction(action :str, active_peers : list) -> None :
                 response = s.recv(1024).decode('utf-8') # Réception du message envoyé par le bootstrap
                 #global active_peers
                 active_peers = json.loads(response)  # Stockage des pairs actifs
+                if not os.path.exists(f'.storage{PEER_PORT}'):
+                    os.makedirs(f'.storage{PEER_PORT}') 
                 return active_peers
             
 
@@ -74,6 +77,7 @@ def bootstrap_interaction(action :str, active_peers : list) -> None :
                 else :
                     dht_local = send_dht_local(dht_local,active_peers[0],responsability_plage[0],responsability_plage[1])
                 print(f"Réponse reçue du Bootstrap : {response}")
+                shutil.rmtree(f'.storage{PEER_PORT}')
 
     except Exception as e:
         print(f"Erreur lors de l'interaction avec le Bootstrap ({action}) : {e}")
@@ -113,7 +117,7 @@ def handle_communication_between_peer(conn):
         if data.get("action") == "Connection with the peer" :
             add_neighbor_peer(data, my_node, active_peers)
         if data.get("action") == "request_file" :
-            handle_files(data)
+            handle_files(data, f'.storage{PEER_PORT}')
             return dht_local
         if data.get("action") == "request_dht" or data.get("action") == "add_file" or data.get("action") == "send_dht" or data.get("action") == "delete_peer_dht":
             print(responsability_plage)
@@ -134,7 +138,7 @@ def handle_communication_between_peer(conn):
             applicant = data.get("data").get("applicant")
             key = data.get("data").get("key")
             print(applicant,key)
-            request_files([applicant],key,my_node, save_directory='.')
+            request_files([applicant],key,my_node, save_directory=f'.storage{PEER_PORT}')
             message= {"action":"add_file", "data": {"key": key,"localisations": my_node}}
             dht_local=handle_dht(my_node,active_peers,message, dht_local, responsability_plage)
             return dht_local

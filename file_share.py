@@ -103,7 +103,7 @@ def receive_file(port, save_directory=".",AUTHORIZED_IP=""):
                 return True  
 
 
-def handle_files(received_data:dict):
+def handle_files(received_data:dict, Storage):
     """
     Gère les communications pour les échanges de fichiers
     """
@@ -113,7 +113,7 @@ def handle_files(received_data:dict):
         host = applicant[1]
         port = received_data.get("port")
 
-        file_pattern = os.path.join(".storage", f"{looking_key}.*")
+        file_pattern = os.path.join(Storage, f"{looking_key}.*")
         matching_files = glob.glob(file_pattern)
 
         if matching_files:
