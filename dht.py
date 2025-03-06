@@ -193,7 +193,8 @@ def remove_peer_from_dht(dht: dict, file_key: str, peer_to_remove: tuple):
 
     """
     if file_key in dht:
-        dht[file_key] = [peer for peer in dht[file_key] if peer != [peer_to_remove]]
+        print(peer_to_remove)
+        dht[file_key] = [peer for peer in dht[file_key] if (print(f"Comparaison: {peer} avec {peer_to_remove}") or peer != peer_to_remove)]
         
         # Supprimer la clé si plus aucun pair n'a ce fichier
         if not dht[file_key]:
@@ -354,7 +355,9 @@ def handle_dht(peer:list, active_peers: list, received_data:dict,dht_local:dict,
                         return add_file_to_dht_local(dht_local, key, [localisations])
                     if action  == "delete_peer_dht" :
                         peer_to_remove = data.get("localisations")
-                        return remove_peer_from_dht(dht_local, key, peer_to_remove)
+                        dht_local = remove_peer_from_dht (dht_local, key, peer_to_remove)
+                        print(dht_local)
+                        return dht_local
                 else :
                     message = msgpack.packb(received_data)
                     send_message_close_peer(message, key,active_peers, start, end)
@@ -366,7 +369,9 @@ def handle_dht(peer:list, active_peers: list, received_data:dict,dht_local:dict,
                     return add_file_to_dht_local(dht_local, key, [localisations])
                 if action  == "delete_peer_dht" :
                     peer_to_remove = data.get("localisations")
-                    return remove_peer_from_dht (dht_local, key, peer_to_remove)
+                    dht_local = remove_peer_from_dht (dht_local, key, peer_to_remove)
+                    print(dht_local)
+                    return dht_local
             else :
                 message = msgpack.packb(received_data)
                 send_message_close_peer(message, key,active_peers, start, end)

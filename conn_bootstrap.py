@@ -67,7 +67,9 @@ def bootstrap_interaction(action :str, active_peers : list) -> None :
                         if os.path.isfile(os.path.join(f'.storage{PEER_PORT}', f)):
                             key=os.path.splitext(f)[0]
                             data= create_delete_file_message(key,my_node)
-                            print(data)
+                            print(active_peers[1],key)
+                            send_replica_message(my_node,[active_peers[1]],key)
+                            time.sleep(1)
                             message= {"action" : "delete_peer_dht", "data" : data}
                             dht_local=handle_dht(my_node,active_peers,message, dht_local, responsability_plage)
 
@@ -253,10 +255,10 @@ try:
             bootstrap_interaction("LEAVE", active_peers)  # Tester l'action LEAVE
             break  # Sortie de la boucle après avoir quitté le réseau
         elif action == 'a' :
-            fichier = "IMG_20170915_173150.jpg"
+            fichier = "peer.py"
             fichier_coder,key = create_add_file_message(fichier, my_node)
             add_file_to_network(fichier,f'.storage{PEER_PORT}')
-            time.sleep(5)
+            time.sleep(1)
             send_replica_message(my_node,active_peers,key)
             data= {"action":"add_file", "data": fichier_coder}
             dht_local=handle_dht(my_node,active_peers,data, dht_local, responsability_plage)
@@ -265,7 +267,7 @@ try:
             print("Liste des pairs actifs :", active_peers)
             print("dht local :",dht_local)
         elif action == 'r' :
-            message=create_looking_file_message("d82976927a30836e3d26fbdc83289539dc65229522676d071b3894e8478af059841e402823a16a394fe1c420483932a9b78ce18dcebe2a582c7fcb7f3faf33a2",my_node)
+            message=create_looking_file_message("cfc87522eac417980a99725ef96b9bff72e6161cff21aef39efa732b2b684ed83151f92e958098912ce908bbd970096d72a819f1228a3ab1383d17d517e0a9e4",my_node)
             data= {"action":"looking_file", "data": message}
             request_list_peer_have_file(my_node,active_peers,data, dht_local, responsability_plage)
             #request_files([['127.0.0.1',7002],['127.0.0.1',7001]],"d82976927a30836e3d26fbdc83289539dc65229522676d071b3894e8478af059841e402823a16a394fe1c420483932a9b78ce18dcebe2a582c7fcb7f3faf33a2",my_node)
