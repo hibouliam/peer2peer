@@ -22,27 +22,28 @@ def request_files(list_peer_have_files: list, looking_key: str, my_node: list, s
     }
 
     for peer in list_peer_have_files:
-        peer_ip, peer_port = peer[1], peer[2]
-        my_free_port = get_free_port()  
+        if peer != my_node :
+            peer_ip, peer_port = peer[1], peer[2]
+            my_free_port = get_free_port()  
 
-        print(f"Tentative de récupération du fichier auprès de {peer_ip}:{peer_port} sur le port {my_free_port}")
+            print(f"Tentative de récupération du fichier auprès de {peer_ip}:{peer_port} sur le port {my_free_port}")
 
-        try:
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                s.settimeout(5)  
-                s.connect((peer_ip, peer_port)) 
-                message["port"] = my_free_port 
-                s.sendall(msgpack.packb(message))
-                print(f"Message envoyé à {peer_ip}:{peer_port}")
+            try:
+                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                    s.settimeout(5)  
+                    s.connect((peer_ip, peer_port)) 
+                    message["port"] = my_free_port 
+                    s.sendall(msgpack.packb(message))
+                    print(f"Message envoyé à {peer_ip}:{peer_port}")
 
-            if receive_file(port=my_free_port, save_directory=save_directory, AUTHORIZED_IP=peer_ip):
-                print("Fichier reçu avec succès.")
-                return True 
-        
-        except Exception as e:
-            print(f"Échec avec {peer_ip}:{peer_port} - {e}")
+                if receive_file(port=my_free_port, save_directory=save_directory, AUTHORIZED_IP=peer_ip):
+                    print("Fichier reçu avec succès.")
+                    return True 
+            
+            except Exception as e:
+                print(f"Échec avec {peer_ip}:{peer_port} - {e}")
 
-        time.sleep(random.uniform(1, 3))  # Délai aléatoire pour éviter les schémas prévisibles
+        time.sleep(1)  # Délai aléatoire pour éviter les schémas prévisibles
 
     print("Échec de récupération du fichier : aucun pair ne l'a fourni.")
     return False
@@ -63,7 +64,11 @@ def send_file(filename, host, port):
         with open(filename, "rb") as f:
             while (chunk := f.read(1024)):
                 s.sendall(chunk)
-        
+
+        confirmation = s.recv(1024).decode()
+        if confirmation == "RECEIVED":
+            print("Accusé de réception reçu. L'envoi est terminé.")        
+
         print("Fichier envoyé avec succès.")
 
 def receive_file(port, save_directory=".",AUTHORIZED_IP=""):
@@ -98,9 +103,18 @@ def receive_file(port, save_directory=".",AUTHORIZED_IP=""):
                             break
                         f.write(chunk)
                         received_size += len(chunk)
-
-                print(f"Fichier reçu et enregistré sous {filename}.")
-                return True  
+                conn.sendall(b"RECEIVED")
+                print("HELLO")
+                try :
+                    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as response_socket:
+                        response_socket.connect((addr[0], 5005))  # Connexion à l'IP de l'expéditeur
+                        response_socket.sendall(b"RECEIVED")  # Envoi de l'accusé de réception
+                        print(f"Accusé de réception envoyé à {addr[0]} sur le port {5005}")
+                    print("hello")
+                    return True  # Indiquer que le fichier a été reçu avec succès
+                except :
+                    print("test")
+                    return True
 
 
 def handle_files(received_data:dict, Storage):
@@ -125,4 +139,28 @@ def handle_files(received_data:dict, Storage):
     
     except Exception as e:
         print(f"Problème avec handle_files : {e}")
+
+import socket
+
+def wait_for_connection():
+    
+
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.bind(("0.0.0.0", 5005)) 
+    s.listen(1)
+    print("En attente de connexions sur le port 12345...")
+
+    while True:
+        conn, addr = s.accept()
+        print(f"Connexion acceptée de {addr}")
+
+        # Traite les données envoyées par le client
+        data = conn.recv(1024)
+        print(f"Données reçues : {data.decode()}")
+
+        if data.decode() == "RECEIVED":
+            print("Accusé de réception reçu.")
+            conn.close()  # Fermer la connexion
+            return True
+ 
 

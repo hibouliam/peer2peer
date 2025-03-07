@@ -5,7 +5,7 @@ import sys
 from recup_ip import generate_key
 import msgpack
 from dht import assign_dht, request_dht,handle_dht, send_dht_local,create_add_file_message, create_looking_file_message, request_list_peer_have_file, send_replica_message,create_delete_file_message
-from file_share import request_files,handle_files
+from file_share import request_files,handle_files, wait_for_connection
 from file_emplacement import add_file_to_network
 import time
 import os
@@ -15,6 +15,7 @@ import shutil
 BOOTSTRAP_HOST = '127.0.0.1'  # Adresse du serveur bootstrap
 BOOTSTRAP_PORT = 5001     # Port du bootstrap
 PEER_PORT = int(sys.argv[1])      # Port d'écoute du pair
+REPLICA_MESSAGE = True
 
 active_peers = []  # Liste des pairs actifs
 
@@ -34,6 +35,7 @@ def bootstrap_interaction(action :str, active_peers : list) -> None :
 
     try:
         global dht_local
+        global REPLICA_MESSAGE
         # Création d'un objet socket pour la communication réseau.
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s: # socket.AF_INET : utilisation du protocole IPv4 & socket.SOCK_STREAM : TCP (Transmission Control Protocol)
             s.connect((BOOTSTRAP_HOST, BOOTSTRAP_PORT)) # Connexion au bootstrap
@@ -69,7 +71,14 @@ def bootstrap_interaction(action :str, active_peers : list) -> None :
                             data= create_delete_file_message(key,my_node)
                             print(active_peers[1],key)
                             send_replica_message(my_node,[active_peers[1]],key)
+                            REPLICA_MESSAGE = True
                             time.sleep(1)
+                            print(REPLICA_MESSAGE)
+                            while True :
+                                if REPLICA_MESSAGE == True:
+                                    print("Accusé de réception reçu, on passe à la suite.")
+                                    break       
+                                REPLICA_MESSAGE = wait_for_connection()     
                             message= {"action" : "delete_peer_dht", "data" : data}
                             dht_local=handle_dht(my_node,active_peers,message, dht_local, responsability_plage)
 
@@ -83,6 +92,7 @@ def bootstrap_interaction(action :str, active_peers : list) -> None :
 
     except Exception as e:
         print(f"Erreur lors de l'interaction avec le Bootstrap ({action}) : {e}")
+        shutil.rmtree(f'.storage{PEER_PORT}')
 
     if action == "LEAVE":
         sys.exit()  # Fermer le programme proprement après la déconnexion
@@ -113,12 +123,15 @@ def handle_communication_between_peer(conn):
     try:
         global dht_local
         global responsability_plage
+        global REPLICA_MESSAGE
         data = msgpack.unpackb(conn.recv(1024))
         print(f"data:{data}")
         
         if data.get("action") == "Connection with the peer" :
             add_neighbor_peer(data, my_node, active_peers)
         if data.get("action") == "request_file" :
+            REPLICA_MESSAGE = False 
+            print(REPLICA_MESSAGE)
             handle_files(data, f'.storage{PEER_PORT}')
             return dht_local
         if data.get("action") == "request_dht" or data.get("action") == "add_file" or data.get("action") == "send_dht" or data.get("action") == "delete_peer_dht":
@@ -150,7 +163,7 @@ def handle_communication_between_peer(conn):
                 print(count_peers_received%2)
                 send_replica_message(my_node,[active_peers[count_peers_received%2]],key, count_peers_received )
                 return dht_local
-            else : 
+            else :
                 request_files([applicant],key,my_node, save_directory=f'.storage{PEER_PORT}')
                 message= {"action":"add_file", "data": {"key": key,"localisations": my_node}}
                 dht_local=handle_dht(my_node,active_peers,message, dht_local, responsability_plage)
