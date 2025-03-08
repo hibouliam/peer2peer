@@ -1,5 +1,5 @@
 import socket
-import msgpack
+import msgpack # type: ignore
 import time
 import os
 import glob

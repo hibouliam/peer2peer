@@ -3,10 +3,11 @@ import threading
 import json
 import sys
 from recup_ip import generate_key
-import msgpack
+import msgpack # type: ignore
 from dht import assign_dht, request_dht,handle_dht, send_dht_local,create_add_file_message, create_looking_file_message, request_list_peer_have_file, send_replica_message,create_delete_file_message
 from file_share import request_files,handle_files, wait_for_connection
 from file_emplacement import add_file_to_network
+from security import verify_pow, request_pow_verification
 import time
 import os
 import sys
@@ -72,8 +73,13 @@ def bootstrap_interaction(action :str, active_peers : list) -> None :
                             print(active_peers[1],key)
                             send_replica_message(my_node,[active_peers[1]],key)
                             REPLICA_MESSAGE = True
-                            time.sleep(1)
+                            #time.sleep(1)
                             print(REPLICA_MESSAGE)
+                            event = threading.Event()  # Crée un événement de synchronisation
+                            thread = threading.Thread(target=wait_for_connection_event, args=(event,))
+                            thread.start()
+                            event.wait(timeout=10)  
+
                             while True :
                                 if REPLICA_MESSAGE == True:
                                     print("Accusé de réception reçu, on passe à la suite.")
@@ -168,6 +174,12 @@ def handle_communication_between_peer(conn):
                 message= {"action":"add_file", "data": {"key": key,"localisations": my_node}}
                 dht_local=handle_dht(my_node,active_peers,message, dht_local, responsability_plage)
                 return dht_local
+        if data.get("action") == "verify_pow" :
+            valid = verify_pow(data.get("data").get("key"),data.get("data").get("nonce"),data.get("data").get("difficulty"))
+            print(valid)
+            response = json.dumps({"valid": valid})
+            conn.sendall(response.encode()) 
+            return dht_local
         else :
             return dht_local
         
@@ -195,6 +207,10 @@ def attempt_peer_connections(my_node : list):
             except Exception as e:
                 print(f"Peer connection error {peer_ip}:{peer_port} : {e}")
 
+def wait_for_connection_event(event):
+    global REPLICA_MESSAGE
+    REPLICA_MESSAGE = wait_for_connection()
+    event.set()
 
 def add_neighbor_peer(data: str, my_node : list, active_peers:list) -> None:
     """
@@ -279,13 +295,16 @@ try:
             bootstrap_interaction("LEAVE", active_peers)  # Tester l'action LEAVE
             break  # Sortie de la boucle après avoir quitté le réseau
         elif action == 'a' :
-            fichier = "IMG_20170915_173150.jpg"
+            fichier = "20221129_145533.mp4"
             fichier_coder,key = create_add_file_message(fichier, my_node)
-            add_file_to_network(fichier,f'.storage{PEER_PORT}')
-            time.sleep(1)
-            send_replica_message(my_node,active_peers,key)
-            data= {"action":"add_file", "data": fichier_coder}
-            dht_local=handle_dht(my_node,active_peers,data, dht_local, responsability_plage)
+            if request_pow_verification(active_peers, key, my_node, 2):
+                add_file_to_network(fichier,f'.storage{PEER_PORT}')
+                time.sleep(1)
+                send_replica_message(my_node,active_peers,key)
+                data= {"action":"add_file", "data": fichier_coder}
+                dht_local=handle_dht(my_node,active_peers,data, dht_local, responsability_plage)
+            else  :
+                print("Vous n'avez pas la puissance de calcul nécessaire")
         elif action == 'p':
             print("Plage de responsabilité :", responsability_plage)
             print("Liste des pairs actifs :", active_peers)
