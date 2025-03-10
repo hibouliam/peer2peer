@@ -8,6 +8,7 @@ from dht import assign_dht, request_dht,handle_dht, send_dht_local,create_add_fi
 from file_share import request_files,handle_files, wait_for_connection, get_free_port
 from file_emplacement import add_file_to_network
 from security import verify_pow, request_pow_verification
+from variable import create_variable_json, update_or_add_variable, load_variable_json
 import time
 import os
 import sys
@@ -18,12 +19,12 @@ BOOTSTRAP_PORT = 5001     # Port du bootstrap
 PEER_PORT = int(sys.argv[1])      # Port d'écoute du pair
 
 
-active_peers = []  # Liste des pairs actifs
+#active_peers = []  # Liste des pairs actifs
 
-my_node=[generate_key(f'127.0.0.1:{PEER_PORT}'),'127.0.0.1',PEER_PORT]
-dht_local = {}
+#my_node=[generate_key(f'127.0.0.1:{PEER_PORT}'),'127.0.0.1',PEER_PORT]
+#dht_local = {}
 
-def bootstrap_interaction(action :str, active_peers : list) -> None : 
+def bootstrap_interaction(action :str, active_peers = []) -> None : 
     """
     Fonction unique pour interagir avec le serveur Bootstrap pour se connecter (JOIN) ou quitter le réseau (LEAVE).
 
@@ -35,8 +36,8 @@ def bootstrap_interaction(action :str, active_peers : list) -> None :
         return
 
     try:
-        global dht_local
-        global REPLICA_MESSAGE
+        #global dht_local
+        #global REPLICA_MESSAGE
         # Création d'un objet socket pour la communication réseau.
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s: # socket.AF_INET : utilisation du protocole IPv4 & socket.SOCK_STREAM : TCP (Transmission Control Protocol)
             s.connect((BOOTSTRAP_HOST, BOOTSTRAP_PORT)) # Connexion au bootstrap
@@ -51,10 +52,18 @@ def bootstrap_interaction(action :str, active_peers : list) -> None :
                 active_peers = json.loads(response)  # Stockage des pairs actifs
                 if not os.path.exists(f'.storage{PEER_PORT}'):
                     os.makedirs(f'.storage{PEER_PORT}') 
+                    create_variable_json(PEER_PORT)
+                update_or_add_variable(PEER_PORT, "my_node", [generate_key(f'127.0.0.1:{PEER_PORT}'),'127.0.0.1',PEER_PORT])
+                update_or_add_variable(PEER_PORT,"active_peers", active_peers)
                 return active_peers
             
 
             elif action == "LEAVE":
+                dht_local = load_variable_json(PEER_PORT, "dht" )
+                responsability_plage = load_variable_json(PEER_PORT, "responsability_plage" )
+                active_peers = load_variable_json(PEER_PORT, "active_peers" )
+                my_node = load_variable_json(PEER_PORT, "my_node" )    
+                print(my_node,dht_local,active_peers,responsability_plage)        
                 response = s.recv(1024).decode('utf-8') # Réception du message envoyé par le bootstrap
                 attempt_peer_connections(my_node)
                 active_peers = sorted(active_peers, key=lambda peer: int(peer[0], 16))
@@ -64,7 +73,8 @@ def bootstrap_interaction(action :str, active_peers : list) -> None :
                 response = s.recv(1024).decode('utf-8')
                 if os.path.exists(f'.storage{PEER_PORT}'):
                     for f in os.listdir(f'.storage{PEER_PORT}'):
-                        if os.path.isfile(os.path.join(f'.storage{PEER_PORT}', f)):
+                        file_path = os.path.join(f'.storage{PEER_PORT}', f)
+                        if os.path.isfile(os.path.join(f'.storage{PEER_PORT}', f)) and (f != "variable.json"):
                             key=os.path.splitext(f)[0]
                             data= create_delete_file_message(key,my_node)
                             print(active_peers[1],key)
@@ -124,24 +134,35 @@ def handle_communication_between_peer(conn):
     Gère la communication entre 2 pairs. Ici, réception et affichage des données envoyées
     """
     try:
-        global dht_local
-        global responsability_plage
+        dht_local = load_variable_json(PEER_PORT, "dht" )
+        responsability_plage = load_variable_json(PEER_PORT, "responsability_plage" )
+        active_peers = load_variable_json(PEER_PORT, "active_peers" )
+        my_node = load_variable_json(PEER_PORT, "my_node" )
         data = msgpack.unpackb(conn.recv(1024))
         print(f"data:{data}")
         
         if data.get("action") == "Connection with the peer" :
             add_neighbor_peer(data, my_node, active_peers)
+            update_or_add_variable(PEER_PORT, "dht", dht_local)
+            update_or_add_variable(PEER_PORT, "responsability_plage", responsability_plage)
         if data.get("action") == "request_file" :
             handle_files(data, f'.storage{PEER_PORT}')
+            update_or_add_variable(PEER_PORT, "dht", dht_local)
+            update_or_add_variable(PEER_PORT, "responsability_plage", responsability_plage)            
             return dht_local
         if data.get("action") == "request_dht" or data.get("action") == "add_file" or data.get("action") == "send_dht" or data.get("action") == "delete_peer_dht":
             print(responsability_plage)
+            print(dht_local)
             dht_local = handle_dht(my_node,active_peers,data, dht_local, responsability_plage)
             responsability_plage = assign_dht(my_node, active_peers)
+            update_or_add_variable(PEER_PORT, "dht", dht_local)
+            update_or_add_variable(PEER_PORT, "responsability_plage", responsability_plage)            
             return dht_local
         if data.get("action") == "looking_file" :
             time.sleep(1)
             request_list_peer_have_file(my_node,active_peers,data, dht_local, responsability_plage)
+            update_or_add_variable(PEER_PORT, "dht", dht_local)
+            update_or_add_variable(PEER_PORT, "responsability_plage", responsability_plage)            
             return dht_local
         if data.get("action") == "lookin_file" :
             print("hello")
@@ -149,12 +170,15 @@ def handle_communication_between_peer(conn):
             key = data.get("data").get("key")
             print(localisation,key)
             request_files(localisation,key,my_node)
+            update_or_add_variable(PEER_PORT, "dht", dht_local)
+            update_or_add_variable(PEER_PORT, "responsability_plage", responsability_plage)            
             return dht_local
         if data.get("action") == "replica_file" :
             applicant = data.get("data").get("applicant")
             key = data.get("data").get("key")
             count_peers_received = data.get("data").get("count_peers_received")
             print(applicant,key,count_peers_received)
+            
             if count_peers_received < 3 and any(
                 os.path.splitext(f)[0] == key for f in os.listdir(f".storage{PEER_PORT}")):
 
@@ -162,19 +186,31 @@ def handle_communication_between_peer(conn):
                 count_peers_received += 1
                 print(count_peers_received%2)
                 send_replica_message(my_node,[active_peers[count_peers_received%2]],key, count_peers_received )
+                update_or_add_variable(PEER_PORT, "dht", dht_local)
+                update_or_add_variable(PEER_PORT, "responsability_plage", responsability_plage)            
                 return dht_local
             else :
+                if count_peers_received == 3 :
+                    update_or_add_variable(PEER_PORT, "dht", dht_local)
+                    update_or_add_variable(PEER_PORT, "responsability_plage", responsability_plage)            
+                    return dht_local
                 request_files([applicant],key,my_node, save_directory=f'.storage{PEER_PORT}')
                 message= {"action":"add_file", "data": {"key": key,"localisations": my_node}}
                 dht_local=handle_dht(my_node,active_peers,message, dht_local, responsability_plage)
+                update_or_add_variable(PEER_PORT, "dht", dht_local)
+                update_or_add_variable(PEER_PORT, "responsability_plage", responsability_plage)            
                 return dht_local
         if data.get("action") == "verify_pow" :
             valid = verify_pow(data.get("data").get("key"),data.get("data").get("nonce"),data.get("data").get("difficulty"))
             print(valid)
             response = json.dumps({"valid": valid})
             conn.sendall(response.encode()) 
+            update_or_add_variable(PEER_PORT, "dht", dht_local)
+            update_or_add_variable(PEER_PORT, "responsability_plage", responsability_plage)            
             return dht_local
         else :
+            update_or_add_variable(PEER_PORT, "dht", dht_local)
+            update_or_add_variable(PEER_PORT, "responsability_plage", responsability_plage)            
             return dht_local
         
     except Exception as e:
@@ -202,7 +238,7 @@ def attempt_peer_connections(my_node : list):
                 print(f"Peer connection error {peer_ip}:{peer_port} : {e}")
 
 def wait_for_connection_event(event, result):
-    global REPLICA_MESSAGE
+    #global REPLICA_MESSAGE
     result[0] = wait_for_connection(5)
     event.set()
 
@@ -238,6 +274,7 @@ def add_neighbor_peer(data: str, my_node : list, active_peers:list) -> None:
                                 return 
                         else :
                             active_peers.append(peer) 
+        update_or_add_variable(PEER_PORT,"active_peers", active_peers)
            
     except Exception as e:
         print(f"Erreur lors de l'ajout d'un pair voisin : {e}")
@@ -262,14 +299,19 @@ try:
         action = input("Votre choix : ").lower()
 
         if action == 'j':
-            active_peers = bootstrap_interaction("JOIN", active_peers)  # Tester l'action JOIN
+            active_peers = bootstrap_interaction("JOIN")  # Tester l'action JOIN
             server_thread = threading.Thread(target=start_peer_server) # Création d'un thread pour gérer la connexion entre 2 pairs avec la fonction start_peer_server
             server_thread.daemon = True
             server_thread.start()
+            dht_local = load_variable_json(PEER_PORT, "dht" )
+            responsability_plage = load_variable_json(PEER_PORT, "responsability_plage" )
+            active_peers = load_variable_json(PEER_PORT, "active_peers" )
+            my_node = load_variable_json(PEER_PORT, "my_node" )
             # Se connecter aux autres pairs du réseau
             attempt_peer_connections(my_node)
             responsability_plage=assign_dht(my_node, active_peers)
             request_dht(my_node, active_peers, responsability_plage)
+            update_or_add_variable(PEER_PORT, "responsability_plage", responsability_plage)
             
 
             #Tester voir si ca fonctionne
@@ -286,9 +328,18 @@ try:
             #Peut être faire un test toute les x secondes pour verifier la connexion
             #Mettre en
         elif action == 'q':
+            dht_local = load_variable_json(PEER_PORT, "dht" )
+            responsability_plage = load_variable_json(PEER_PORT, "responsability_plage" )
+            active_peers = load_variable_json(PEER_PORT, "active_peers" )
+            my_node = load_variable_json(PEER_PORT, "my_node" )
             bootstrap_interaction("LEAVE", active_peers)  # Tester l'action LEAVE
             break  # Sortie de la boucle après avoir quitté le réseau
         elif action == 'a' :
+            dht_local = load_variable_json(PEER_PORT, "dht" )
+            responsability_plage = load_variable_json(PEER_PORT, "responsability_plage" )
+            active_peers = load_variable_json(PEER_PORT, "active_peers" )
+            my_node = load_variable_json(PEER_PORT, "my_node" )
+            print(my_node)
             fichier = "20221129_145533.mp4"
             fichier_coder,key = create_add_file_message(fichier, my_node)
             if request_pow_verification(active_peers, key, my_node, 2):
@@ -297,13 +348,23 @@ try:
                 send_replica_message(my_node,active_peers,key)
                 data= {"action":"add_file", "data": fichier_coder}
                 dht_local=handle_dht(my_node,active_peers,data, dht_local, responsability_plage)
+                update_or_add_variable(PEER_PORT, "dht", dht_local)
+
             else  :
                 print("Vous n'avez pas la puissance de calcul nécessaire")
         elif action == 'p':
-            print("Plage de responsabilité :", responsability_plage)
+            dht_local = load_variable_json(PEER_PORT, "dht" )
+            responsability_plage = load_variable_json(PEER_PORT, "responsability_plage" )
+            active_peers = load_variable_json(PEER_PORT, "active_peers" )
+            my_node = load_variable_json(PEER_PORT, "my_node" )
+            print("Plage de responsabilité :", load_variable_json(PEER_PORT,"responsability_plage"))
             print("Liste des pairs actifs :", active_peers)
             print("dht local :",dht_local)
         elif action == 'r' :
+            dht_local = load_variable_json(PEER_PORT, "dht" )
+            responsability_plage = load_variable_json(PEER_PORT, "responsability_plage" )
+            active_peers = load_variable_json(PEER_PORT, "active_peers" )
+            my_node = load_variable_json(PEER_PORT, "my_node" )
             message=create_looking_file_message("f7e764393a3934f03ff0c4cdca9ec8ed1f6b0d1d4a63aa371e398825e6b09e70a89829d11fb0128a98c577e3b81a8cee5f7ced81197a649ae015faca7248261b",my_node)
             data= {"action":"looking_file", "data": message}
             request_list_peer_have_file(my_node,active_peers,data, dht_local, responsability_plage)

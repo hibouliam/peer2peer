@@ -7,6 +7,8 @@ def assign_dht(my_node: list,active_peers:list) -> tuple :
     """
     Asssigne la plage de la dht au pair en fonction de ses voisins en utilisant la fonction determine_responsibility
     """
+    if active_peers == None :
+        return (0,None)
     if len(active_peers) == 0 :
         return (0,None)
     
