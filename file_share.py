@@ -15,6 +15,13 @@ def request_files(list_peer_have_files: list, looking_key: str, my_node: list, s
     Demande un fichier aux pairs disponibles jusqu'à réception réussie.
     Utilise un port différent à chaque tentative pour plus de sécurité.
     """
+    try :
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as response_socket:
+            response_socket.connect((list_peer_have_files[0][1], 5005))  # Connexion à l'IP de l'expéditeur
+            response_socket.sendall(b"REQUEST")  # Envoi de l'accusé de réception
+            print(f"Accusé de réception envoyé à {list_peer_have_files[0][1]} sur le port {5005}")    
+    except :
+        print("no")
     message = {
         "action": "request_file",
         "key": looking_key,
@@ -142,14 +149,15 @@ def handle_files(received_data:dict, Storage):
 
 import socket
 
-def wait_for_connection():
+def wait_for_connection(timeout=None):
     
 
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.bind(("0.0.0.0", 5005)) 
     s.listen(1)
     print("En attente de connexions sur le port 12345...")
-
+    if timeout:
+        s.settimeout(timeout)
     while True:
         conn, addr = s.accept()
         print(f"Connexion acceptée de {addr}")
@@ -157,7 +165,10 @@ def wait_for_connection():
         # Traite les données envoyées par le client
         data = conn.recv(1024)
         print(f"Données reçues : {data.decode()}")
-
+        if data.decode() == "REQUEST":
+            print("Accusé de réception reçu.")
+            conn.close()  # Fermer la connexion
+            return False
         if data.decode() == "RECEIVED":
             print("Accusé de réception reçu.")
             conn.close()  # Fermer la connexion

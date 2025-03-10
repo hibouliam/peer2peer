@@ -5,7 +5,7 @@ import sys
 from recup_ip import generate_key
 import msgpack # type: ignore
 from dht import assign_dht, request_dht,handle_dht, send_dht_local,create_add_file_message, create_looking_file_message, request_list_peer_have_file, send_replica_message,create_delete_file_message
-from file_share import request_files,handle_files, wait_for_connection
+from file_share import request_files,handle_files, wait_for_connection, get_free_port
 from file_emplacement import add_file_to_network
 from security import verify_pow, request_pow_verification
 import time
@@ -16,7 +16,7 @@ import shutil
 BOOTSTRAP_HOST = '127.0.0.1'  # Adresse du serveur bootstrap
 BOOTSTRAP_PORT = 5001     # Port du bootstrap
 PEER_PORT = int(sys.argv[1])      # Port d'écoute du pair
-REPLICA_MESSAGE = True
+
 
 active_peers = []  # Liste des pairs actifs
 
@@ -47,10 +47,7 @@ def bootstrap_interaction(action :str, active_peers : list) -> None :
                 print(response)  # Afficher le message du serveur bootstrap
                 if response == "Send your listening port":
                     s.sendall(str(PEER_PORT).encode('utf-8'))  # Envoi du port d'écoute du pair
-
-                # Récupérer la liste des pairs actifs
                 response = s.recv(1024).decode('utf-8') # Réception du message envoyé par le bootstrap
-                #global active_peers
                 active_peers = json.loads(response)  # Stockage des pairs actifs
                 if not os.path.exists(f'.storage{PEER_PORT}'):
                     os.makedirs(f'.storage{PEER_PORT}') 
@@ -72,19 +69,19 @@ def bootstrap_interaction(action :str, active_peers : list) -> None :
                             data= create_delete_file_message(key,my_node)
                             print(active_peers[1],key)
                             send_replica_message(my_node,[active_peers[1]],key)
-                            REPLICA_MESSAGE = True
+                            result = [True]
                             #time.sleep(1)
-                            print(REPLICA_MESSAGE)
                             event = threading.Event()  # Crée un événement de synchronisation
-                            thread = threading.Thread(target=wait_for_connection_event, args=(event,))
+                            thread = threading.Thread(target=wait_for_connection_event, args=(event, result))
                             thread.start()
-                            event.wait(timeout=10)  
-
+                            event.wait(timeout=5)  
+                            thread.join()
+                            print(result[0])
                             while True :
-                                if REPLICA_MESSAGE == True:
+                                if result[0] == True:
                                     print("Accusé de réception reçu, on passe à la suite.")
                                     break       
-                                REPLICA_MESSAGE = wait_for_connection()     
+                                result[0] = wait_for_connection()     
                             message= {"action" : "delete_peer_dht", "data" : data}
                             dht_local=handle_dht(my_node,active_peers,message, dht_local, responsability_plage)
 
@@ -129,15 +126,12 @@ def handle_communication_between_peer(conn):
     try:
         global dht_local
         global responsability_plage
-        global REPLICA_MESSAGE
         data = msgpack.unpackb(conn.recv(1024))
         print(f"data:{data}")
         
         if data.get("action") == "Connection with the peer" :
             add_neighbor_peer(data, my_node, active_peers)
         if data.get("action") == "request_file" :
-            REPLICA_MESSAGE = False 
-            print(REPLICA_MESSAGE)
             handle_files(data, f'.storage{PEER_PORT}')
             return dht_local
         if data.get("action") == "request_dht" or data.get("action") == "add_file" or data.get("action") == "send_dht" or data.get("action") == "delete_peer_dht":
@@ -207,9 +201,9 @@ def attempt_peer_connections(my_node : list):
             except Exception as e:
                 print(f"Peer connection error {peer_ip}:{peer_port} : {e}")
 
-def wait_for_connection_event(event):
+def wait_for_connection_event(event, result):
     global REPLICA_MESSAGE
-    REPLICA_MESSAGE = wait_for_connection()
+    result[0] = wait_for_connection(5)
     event.set()
 
 def add_neighbor_peer(data: str, my_node : list, active_peers:list) -> None:
@@ -256,7 +250,7 @@ def applatir_données(data :list)-> list :
         else:
             result.append(item)  # Sinon, ajoute l'élément directement
     return result
-    
+   
 try:
     while True:
         print("\nActions disponibles :")
@@ -310,7 +304,7 @@ try:
             print("Liste des pairs actifs :", active_peers)
             print("dht local :",dht_local)
         elif action == 'r' :
-            message=create_looking_file_message("d82976927a30836e3d26fbdc83289539dc65229522676d071b3894e8478af059841e402823a16a394fe1c420483932a9b78ce18dcebe2a582c7fcb7f3faf33a2",my_node)
+            message=create_looking_file_message("f7e764393a3934f03ff0c4cdca9ec8ed1f6b0d1d4a63aa371e398825e6b09e70a89829d11fb0128a98c577e3b81a8cee5f7ced81197a649ae015faca7248261b",my_node)
             data= {"action":"looking_file", "data": message}
             request_list_peer_have_file(my_node,active_peers,data, dht_local, responsability_plage)
             #request_files([['127.0.0.1',7002],['127.0.0.1',7001]],"d82976927a30836e3d26fbdc83289539dc65229522676d071b3894e8478af059841e402823a16a394fe1c420483932a9b78ce18dcebe2a582c7fcb7f3faf33a2",my_node)
