@@ -1,7 +1,7 @@
 import msgpack # type: ignore
 import socket
 from recup_ip import generate_key
-
+import time
 
 def assign_dht(my_node: list,active_peers:list) -> tuple :
     """
@@ -333,7 +333,7 @@ def handle_dht(peer:list, active_peers: list, received_data:dict,dht_local:dict,
             if end_recu is None:
                 if start_recu >= start_peer:
                     print(f"Sending partial DHT to {peer}")
-                    return send_dht_local(dht_local, peer, start_recu, end_peer)
+                    return send_dht_local(dht_local, peer, start_recu, end_recu)
                 else:
                     print("Request does not match my responsibility range.")
                     return dht_local
@@ -347,6 +347,7 @@ def handle_dht(peer:list, active_peers: list, received_data:dict,dht_local:dict,
             return dht_local
                 
         if action == "add_file" or action == "delete_peer_dht":
+            time.sleep(5)
             print("hel")
             print(data)
             key=data.get("key")

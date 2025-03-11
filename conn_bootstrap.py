@@ -100,7 +100,10 @@ def bootstrap_interaction(action :str, active_peers = []) -> None :
                     dht_local = send_dht_local(dht_local,active_peers[1],responsability_plage[0],responsability_plage[1])
                 else :
                     dht_local = send_dht_local(dht_local,active_peers[0],responsability_plage[0],responsability_plage[1])
+                update_or_add_variable(PEER_PORT, "dht", dht_local)
+                update_or_add_variable(PEER_PORT, "responsability_plage", responsability_plage)
                 print(f"Réponse reçue du Bootstrap : {response}")
+                time.sleep(2)
                 shutil.rmtree(f'.storage{PEER_PORT}')
 
     except Exception as e:
