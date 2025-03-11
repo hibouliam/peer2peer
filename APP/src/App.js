@@ -5,9 +5,11 @@ import Page from "./Page";
 const App = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [ip, setIp] = useState("");
+  const [peerPort, setPeerPort] = useState("");
 
-  const handleLogin = (enteredIp) => {
+  const handleLogin = (enteredIp,enteredPort) => {
     setIp(enteredIp);
+    setPeerPort(enteredPort);
     setIsLoggedIn(true);
   };
 
@@ -18,7 +20,8 @@ const App = () => {
 
   return (
     <div>
-      {isLoggedIn ? <Page ip={ip} onLogout={handleLogout} /> : <LoginPage onLogin={handleLogin} />}
+      {isLoggedIn ? <Page ip={ip} peerPort={peerPort} onLogout={handleLogout} /> : <LoginPage onLogin={handleLogin} />}
+
     </div>
   );
 };

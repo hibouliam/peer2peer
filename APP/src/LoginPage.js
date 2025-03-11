@@ -7,6 +7,7 @@
 
 // const LoginPage = ({ onLogin }) => {
 //   const [ip, setIp] = useState("");
+//   const [peerPort, setPeerPort] = useState("");
 
 //   useEffect(() => {
 //     const fetchIp = async () => {
@@ -22,11 +23,11 @@
 //     fetchIp();
 //   }, []);
 
-//   const handleLogin = async () => {
-//     if (ip) {
+//     const handleLogin = async () => {
+//     if (ip && peerPort) {
 //       try {
 //         // Envoi de la requête pour rejoindre le réseau avec l'adresse IP
-//         const response = await axios.post("http://localhost:5000/join_network", {
+//         const response = await axios.post("http://localhost:5000/join", { peer_port: peerPort,
 //           ip: ip,
 //         });
 //         console.log("Réponse du serveur:", response.data);
@@ -93,8 +94,17 @@
 //           onChange={(e) => setIp(e.target.value)}
 //           sx={{ marginBottom: 2, input: { color: "#d9d9d9" } }}
 //         />
-//       </ThemeProvider>
+//       {/* Champ pour entrer le port */}
+//       <TextField
+//           label="Port"
+//           variant="outlined"
+//           type="number"
+//           value={peerPort}
+//           onChange={(e) => setPeerPort(e.target.value)}
+//           sx={{ marginBottom: 2, width: "300px" }}
+//         />
 
+//       </ThemeProvider>
 //       <Button variant="contained" onClick={handleLogin}>
 //         Se Connecter
 //       </Button>
@@ -103,6 +113,7 @@
 // };
 
 // export default LoginPage;
+
 
 
 import React, { useState } from "react";
@@ -169,4 +180,3 @@ function PeerControl() {
 }
 
 export default PeerControl;
-

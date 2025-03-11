@@ -17,7 +17,7 @@ import "./Page.css"
 import axios from "axios";
 
 
-const Page = ({ip,onLogout}) => {
+const Page = ({ip,peerPort,onLogout}) => {
   
   const pageStyle = {
     backgroundImage: `url(${backgroundImage})`,
@@ -368,6 +368,7 @@ const Page = ({ip,onLogout}) => {
 <div className='pageStyle' style={pageStyle}>
       <h1>Bienvenue sur NodeLink !</h1>
       <h3>Connecté à : {ip}</h3>
+      <h4>Port : {peerPort}</h4>
       {/* Header en haut à droite */}
       <div style={headerStyle} className='headerStyle'>
         {/* Premier conteneur */}
