@@ -1,0 +1,79 @@
+.pageStyle {
+
+    background-image: url('./assets/background2.jpg');
+    background-Size: 'cover';
+    background-Position: 'center';
+    background-Repeat: 'no-repeat';
+    height: '100vh';
+    display: 'flex';
+    flex-Direction: 'column'; 
+    justify-content: 'center';
+    align-Items: 'center';
+    color: 'white';
+    position: 'relative';
+};
+
+  .headerStyle {
+    position: absolute;
+    top: 0;
+    right: 0;
+    display: flex;
+    gap: 20px;
+    padding: 10px;
+    border-radius: 10px;
+    background: #212529;
+  }
+  
+  .buttonContainerStyle {
+    display: flex;
+    flex-direction: row;
+    gap: 10px;
+  }
+  
+  .contentContainerStyle {
+    background-color: #343a40;
+    color: black;
+    width: 300px;
+    padding: 20px;
+    border-radius: 10px;
+    position: absolute;
+    left: 3%;
+    top: 50%;
+    transform: translateY(-50%);
+    box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .contentStyle {
+    text-align: center;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .contentStyle2 {
+    text-align: center;
+    align-items: center;
+    justify-content: center;
+    color: "#d9d9d9"
+  }
+
+  .contentStyle3 {
+    text-align: center;
+    align-items: center;
+    justify-content: center;
+    color: "#d9d9d9"
+  }
+  
+  /* .overlayStyle {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 999;
+  } */
+  
+  
+  
