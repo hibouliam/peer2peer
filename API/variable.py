@@ -10,6 +10,7 @@ def create_variable_json(PEER_PORT):
     
     if not os.path.isfile(file_path):
         default_data = {
+            "port": PEER_PORT,
             "dht": {},
             "responsability_plage": (0, None)
         }

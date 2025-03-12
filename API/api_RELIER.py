@@ -39,9 +39,13 @@ def join_network():
     # my_node = [generate_key(f'127.0.0.1:{port}'),'127.0.0.1',port]
 
     active_peers = bootstrap_interaction(action = "JOIN",peer_port=port)  # Tester l'action JOIN
-    server_thread = threading.Thread(target=start_peer_server(port)) # Création d'un thread pour gérer la connexion entre 2 pairs avec la fonction start_peer_server
+    print("[DEBUG] Ligne Join est passé")
+    server_thread = threading.Thread(target=start_peer_server, args=(port,)) # Création d'un thread pour gérer la connexion entre 2 pairs avec la fonction start_peer_server
+    print("[DEBUG] serveur thread fixé")
     server_thread.daemon = True
+    print("[DEBUG] serveur thread daemon true")
     server_thread.start()
+    print("[DEBUG] serveur thread started")
 
     dht_local = load_variable_json(port, "dht" )
     responsability_plage = load_variable_json(port, "responsability_plage" )
@@ -57,14 +61,18 @@ def join_network():
             
     # with lock:
 
-    return jsonify({"status": "success", "message": "Join network","active_peers": active_peers}), 200
+    return jsonify({"status": "success", "message": "Join network","active_peers": active_peers,"peerPort":port}), 200
 
         
 @app.route("/leave", methods=["POST"])
 def leave_network():
-    data = request.json
-    peer_port = data.get("peer_port")
-    bootstrap_interaction("LEAVE", active_peers, peer_port)
+    peer_port = 0
+    dht_local = load_variable_json(peer_port, "dht" )
+    responsability_plage = load_variable_json(peer_port, "responsability_plage" )
+    active_peers = load_variable_json(peer_port, "active_peers" )
+    my_node = load_variable_json(peer_port, "my_node" )
+    bootstrap_interaction("LEAVE", active_peers,peer_port)  
+            
     return jsonify({"status": "success", "message": "Left network"}), 200
 
 @app.route("/peers", methods=["GET"])

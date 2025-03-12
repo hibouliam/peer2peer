@@ -18,7 +18,9 @@ import axios from "axios";
 
 
 const Page = ({ip,peerPort,onLogout}) => {
-  
+  console.log("IP reçue :", ip);
+  console.log("Port reçu :", peerPort);
+
   const pageStyle = {
     backgroundImage: `url(${backgroundImage})`,
     backgroundSize: 'cover',
@@ -350,7 +352,7 @@ const Page = ({ip,peerPort,onLogout}) => {
         alert(error.response?.data?.error || "Une erreur est survenue");
       }
     };
-
+    
     const handleLogout = async () => {
       try {
         const response = await axios.post("http://localhost:5000/leave", { ip });

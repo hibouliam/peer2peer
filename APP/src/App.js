@@ -8,6 +8,7 @@ const App = () => {
   const [peerPort, setPeerPort] = useState("");
 
   const handleLogin = (enteredIp,enteredPort) => {
+    console.log("Données reçues dans handleLogin:", enteredIp, enteredPort);
     setIp(enteredIp);
     setPeerPort(enteredPort);
     setIsLoggedIn(true);
@@ -15,6 +16,7 @@ const App = () => {
 
   const handleLogout = () => {
     setIp("");
+    setPeerPort("")
     setIsLoggedIn(false);
   };
 
@@ -23,6 +25,7 @@ const App = () => {
       {isLoggedIn ? <Page ip={ip} peerPort={peerPort} onLogout={handleLogout} /> : <LoginPage onLogin={handleLogin} />}
 
     </div>
+    
   );
 };
 

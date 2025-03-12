@@ -105,11 +105,13 @@ def bootstrap_interaction(action :str, active_peers : list, peer_port : int) -> 
     if action == "LEAVE":
         sys.exit()  # Fermer le programme proprement après la déconnexion
 
+running = True
 
 def start_peer_server(peer_port,my_node):
     """
     Lance un serveur destiné à accepter/gèrer les connexions entre pairs déjà connectés au réseau
     """
+    global running
     # Création d'un objet socket pour la communication réseau.
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -117,11 +119,18 @@ def start_peer_server(peer_port,my_node):
     server_socket.listen(5)
     print(f"Peer server started, listening on port {peer_port}")
     
-    while True:
-        conn, addr = server_socket.accept()
-        print(f"Incoming connection from {addr}")
-        handle_communication_between_peer(conn,my_node,peer_port=peer_port)
+    # while True:
+    #     conn, addr = server_socket.accept()
+    #     print(f"Incoming connection from {addr}")
+    #     handle_communication_between_peer(conn,my_node,peer_port=peer_port)
 
+    while running:
+        try:
+            conn, addr = server_socket.accept()
+            print(f"Incoming connection from {addr}")
+            handle_communication_between_peer(conn, my_node, peer_port = peer_port)
+        except socket.timeout:
+            continue  # Ignore le timeout et continue la boucle
 
 
 def handle_communication_between_peer(conn,my_node,peer_port):

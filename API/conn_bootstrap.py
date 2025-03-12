@@ -132,7 +132,7 @@ def start_peer_server(peer_port):
     while True:
         conn, addr = server_socket.accept()
         print(f"Incoming connection from {addr}")
-        handle_communication_between_peer(conn)
+        handle_communication_between_peer(conn,peer_port=peer_port)
 
 
 
