@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 // import * as React from 'react';
 import backgroundImage from './assets/background2.jpg'; 
-import myImage from './assets/dashboard.png';
+// import myImage from './assets/dashboard.png';
 import Button from '@mui/material/Button';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
@@ -15,6 +15,16 @@ import TextField from '@mui/material/TextField';
 import { createTheme, ThemeProvider } from "@mui/material/styles";
 import "./Page.css"
 import axios from "axios";
+
+import Table from '@mui/material/Table';
+import TableBody from '@mui/material/TableBody';
+import TableCell from '@mui/material/TableCell';
+import TableContainer from '@mui/material/TableContainer';
+import TableHead from '@mui/material/TableHead';
+import TableRow from '@mui/material/TableRow';
+import Paper from '@mui/material/Paper';
+
+
 
 
 const Page = ({ip,peerPort,onLogout}) => {
@@ -67,6 +77,7 @@ const Page = ({ip,peerPort,onLogout}) => {
     boxShadow: '0px 4px 6px rgba(0, 0, 0, 0.1)', // Ombre pour un effet esthétique
     alignItems: 'center',
     justifyContent: 'center', // Centre horizontalement
+    
   };
 
   const contentStyle = {
@@ -282,10 +293,57 @@ const Page = ({ip,peerPort,onLogout}) => {
         </>
   );
 
+
+  function createData(
+    name: string,
+    calories: number,
+    fat: number,
+    carbs: number,
+    protein: number,
+  ) {
+    return { name, calories, fat, carbs, protein };
+  }
+  
+  const rows = [
+    createData('Frozen yoghurt', 159, 6.0, 24, 4.0),
+    createData('Ice cream sandwich', 237, 9.0, 37, 4.3),
+  ];
+  
+
   // // eslint-disable-next-line
   const PopUpNetworkInfo = (
     <>
-      <img src={myImage} alt="Network Information" style={{ width: '400px' }} />
+    <h2 textAlign='Center'>Participants présents sur le réseau </h2>
+       <TableContainer component={Paper}>
+      <Table sx={{ minWidth: 400 }} aria-label="simple table">
+        <TableHead>
+          <TableRow>
+            <TableCell>Nodes</TableCell>
+            <TableCell >Paires actifs</TableCell>
+            <TableCell >DHT Local</TableCell>
+            <TableCell >My _node</TableCell>
+            
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {rows.map((row) => (
+            <TableRow
+              key={row.name}
+              sx={{ '&:last-child td, &:last-child th': { border: 0 } }}
+            >
+              <TableCell component="th" scope="row">
+                {row.name}
+              </TableCell>
+              <TableCell align="right">{row.calories}</TableCell>
+              <TableCell align="right">{row.fat}</TableCell>
+              <TableCell align="right">{row.carbs}</TableCell>
+            
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </TableContainer>
+
       <Button
         variant="contained"
         size="small"
@@ -297,15 +355,26 @@ const Page = ({ip,peerPort,onLogout}) => {
     </>
   );
 
+  // const [open,setOpen] = useState(false);
+  // const [networkData, setNeworkData] = useState(null);
+
   const handlePrint = async () => {
     try {
-      const response = await axios.get('http://localhost:5000/info');
+      const response = await axios.post('http://localhost:5000/info', {peerPort: peerPort});
+    
       console.log(response.data);
+      // setOpen(true);
+      setIsInfoNetworkPopupOpen(!isNetworkInfoPopUpOpen)
+      
     } catch (err) {
       console.error(err);
     }
+    
   };
 
+ 
+
+  
   // Upload
   // eslint-disable-next-line
     const [file,setFile] = useState(null);
@@ -355,11 +424,16 @@ const Page = ({ip,peerPort,onLogout}) => {
     
     const handleLogout = async () => {
       try {
-        const response = await axios.post("http://localhost:5000/leave", { ip });
-        console.log("Réponse du serveur :", response.data);
-      } catch (error) {
+        const response = await axios.post("http://localhost:5000/leave", { ip,
+          peerPort: peerPort});
+        console.log("Réponse du serveur :", response.data); } 
+
+
+      catch (error) {
         console.error("Erreur lors de la déconnexion :", error);
-      } finally {
+      } 
+      
+      finally {
         onLogout(); // S'exécute toujours, même en cas d'erreur
       }
     };

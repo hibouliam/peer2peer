@@ -19,7 +19,7 @@ dht_local = {}
 lock = threading.Lock()
 
 
-@app.route('/api/ip', methods=['GET'])
+@app.route('/api/ip', methods=['GET']) # AutoRemplissage ip
 def get_ip():
     hostname = socket.gethostname()
     ip_address = socket.gethostbyname(hostname)
@@ -64,20 +64,55 @@ def join_network():
     return jsonify({"status": "success", "message": "Join network","active_peers": active_peers,"peerPort":port}), 200
 
         
-@app.route("/leave", methods=["POST"])
+@app.route("/leave", methods=["POST"]) # Déconnexion noeuds
 def leave_network():
-    peer_port = 0
-    dht_local = load_variable_json(peer_port, "dht" )
-    responsability_plage = load_variable_json(peer_port, "responsability_plage" )
-    active_peers = load_variable_json(peer_port, "active_peers" )
-    my_node = load_variable_json(peer_port, "my_node" )
-    bootstrap_interaction("LEAVE", active_peers,peer_port)  
-            
+    print(f"[DEBUG] Request Data: {request.data}")  # Affiche les données de la requête
+    
+    data = request.get_json()    
+    peer_port = int(data.get("peerPort")) if data else None
+    print(f"[DEBUG] peer_port = {peer_port} type : {type(peer_port)}")
+    
+    if peer_port:
+        dht_local = load_variable_json(peer_port, "dht")
+        responsability_plage = load_variable_json(peer_port, "responsability_plage")
+        active_peers = load_variable_json(peer_port, "active_peers")
+        print(f"[DEBUG] active_peers = {active_peers}")
+        my_node = load_variable_json(peer_port, "my_node")
+        bootstrap_interaction("LEAVE", peer_port, active_peers=active_peers)  
+    else:
+        print("[DEBUG] No peerPort received.")
+    
     return jsonify({"status": "success", "message": "Left network"}), 200
 
-@app.route("/peers", methods=["GET"])
+@app.route("/info", methods=["POST"]) #Informations réseau
 def get_peers():
-    return jsonify({"active_peers": active_peers}), 200
+
+    data = request.get_json()
+    print("[DEBUG] Requête reçue:", data)  # Vérifier ce qui est reçu
+
+    peer_port = int(data.get("peerPort")) if data else None
+    print("[DEBUG] peer_port =", peer_port)
+
+   
+    if peer_port :
+        dht_local = load_variable_json(peer_port, "dht" )
+        responsability_plage = load_variable_json(peer_port, "responsability_plage" )
+        active_peers = load_variable_json(peer_port, "active_peers" )
+        my_node = load_variable_json(peer_port, "my_node" )
+
+        
+        print("Plage de responsabilité :", load_variable_json(peer_port,"responsability_plage"))
+        print("Liste des pairs actifs :", active_peers)
+        print("dht local :",dht_local)
+
+        return jsonify({"Status": "success","active_peers": active_peers,"responsability_plage":responsability_plage,"dht_local":dht_local,"my_node":my_node}), 200
+
+
+    else:
+        print("[DEBUG] No peerPort received.")
+
+    return jsonify({"Status": "error", "message": "No peerPort provided"}), 400
+
 
 # @app.route("/dht", methods=["GET"])
 # def get_dht():

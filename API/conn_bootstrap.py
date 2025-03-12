@@ -69,7 +69,7 @@ def bootstrap_interaction(action :str,peer_port:int,active_peers = []) -> None :
                 my_node = load_variable_json(peer_port, "my_node" )    
                 print(my_node,dht_local,active_peers,responsability_plage)        
                 response = s.recv(1024).decode('utf-8') # Réception du message envoyé par le bootstrap
-                attempt_peer_connections(my_node)
+                attempt_peer_connections(my_node,active_peers=active_peers)
                 active_peers = sorted(active_peers, key=lambda peer: int(peer[0], 16))
                 print(response)  # Afficher le message "Send your port for LEAVE"
                 s.sendall(str(peer_port).encode('utf-8'))  # Envoi du port d'écoute
@@ -359,14 +359,14 @@ def applatir_données(data :list)-> list :
 
 #             else  :
 #                 print("Vous n'avez pas la puissance de calcul nécessaire")
-#         elif action == 'p':
-#             dht_local = load_variable_json(PEER_PORT, "dht" )
-#             responsability_plage = load_variable_json(PEER_PORT, "responsability_plage" )
-#             active_peers = load_variable_json(PEER_PORT, "active_peers" )
-#             my_node = load_variable_json(PEER_PORT, "my_node" )
-#             print("Plage de responsabilité :", load_variable_json(PEER_PORT,"responsability_plage"))
-#             print("Liste des pairs actifs :", active_peers)
-#             print("dht local :",dht_local)
+        # elif action == 'p':
+        #     dht_local = load_variable_json(PEER_PORT, "dht" )
+        #     responsability_plage = load_variable_json(PEER_PORT, "responsability_plage" )
+        #     active_peers = load_variable_json(PEER_PORT, "active_peers" )
+        #     my_node = load_variable_json(PEER_PORT, "my_node" )
+        #     print("Plage de responsabilité :", load_variable_json(PEER_PORT,"responsability_plage"))
+        #     print("Liste des pairs actifs :", active_peers)
+        #     print("dht local :",dht_local)
 #         elif action == 'r' :
 #             dht_local = load_variable_json(PEER_PORT, "dht" )
 #             responsability_plage = load_variable_json(PEER_PORT, "responsability_plage" )

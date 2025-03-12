@@ -1,0 +1,14 @@
+{
+    "port": 1,
+    "dht": {},
+    "responsability_plage": [
+        0,
+        null
+    ],
+    "my_node": [
+        "1dee5bdb1b8309864cc12694adf57178055442e73f928635fc86a19cf77fec9831a09b3e6a4de9902fdef3098455a1e9c3fd212a38cf52cee722a92034612f2d",
+        "127.0.0.1",
+        1
+    ],
+    "active_peers": []
+}
