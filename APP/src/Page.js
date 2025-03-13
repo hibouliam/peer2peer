@@ -425,12 +425,14 @@ const Page = ({ip,peerPort,onLogout}) => {
 
     // Download
   
-    const [filename, setFilename] = useState("");
+    const [filename, setFilename] = useState("")
+    // eslint-disable-next-line 
+    const [key, setKey] = useState("")
 
     const handleDownload = async () => {
       try {
-        const response = await axios.post("http://localhost:5000/api/download", {
-          filename: filename,
+        const response = await axios.post("http://localhost:5000/download", {
+          filename: filename,peerPort:peerPort,key : key
         });
   
         alert(response.data.message);

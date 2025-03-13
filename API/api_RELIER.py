@@ -136,6 +136,11 @@ def get_peers():
 UPLOAD_FOLDER = "uploads"  # Dossier où sauvegarder temporairement les fichiers
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)  # Crée le dossier s'il n'existe pas
 
+def save_file_key(filename,key, output_file="file_keys.txt"):
+    with open(output_file, "a", encoding ='utf-8') as f:
+        f.write(f"{filename} : {key}\n")
+    print(f"[INFO] Enregistrement : {filename} -> {key}")
+
 @app.route("/upload", methods = ["POST"])
 def upload_file():
 
@@ -167,12 +172,18 @@ def upload_file():
     print(my_node)
     # fichier = "IMG_20170915_173150.jpg"
     fichier_coder,key = create_add_file_message(file_path, my_node)
+    print("[DEBUG] Fichier Coder :", fichier_coder)
+    print("[DEBUG] KEY", key)
 
     add_file_to_network(file_path,f'.storage{peer_port}')
     send_replica_message(my_node,active_peers,key)
     data= {"action":"add_file", "data": fichier_coder}
     dht_local=handle_dht(my_node,active_peers,data, dht_local, responsability_plage)
     update_or_add_variable(peer_port, "dht", dht_local)
+
+    #Ecriture dans le fichier file_keys.txt
+    save_file_key(file.filename,key=key)
+
 
     # if request_pow_verification(active_peers, key, my_node, 2):
 
@@ -184,6 +195,32 @@ def upload_file():
     #     update_or_add_variable(peer_port, "dht", dht_local)
 
     return jsonify({"status": "success", "message": f"Fichier {file.filename} reçu avec peerPort {peer_port}"}), 200
+
+@app.route("/download",methods=["POST"])
+def donwload_file():
+    print("[DEBUG] requete passée")
+
+    data = request.get_json()
+    print("[DEBUG] Requête reçue:", data)  # Vérifier ce qui est reçu
+    file_name = data.get("filename")
+    peer_port = int(data.get("peerPort")) if data else None
+    print("[DEBUG] peer_port =", peer_port,"file name : ", file_name)
+
+    if peer_port is None:
+        return jsonify({"status": "error", "message": "peerPort manquant"}), 400
+
+    dht_local = load_variable_json(peer_port, "dht" )
+    responsability_plage = load_variable_json(peer_port, "responsability_plage" )
+    active_peers = load_variable_json(peer_port, "active_peers" )
+    my_node = load_variable_json(peer_port, "my_node" )
+    message=create_looking_file_message(file_name,my_node)
+    data= {"action":"looking_file", "data": message}
+    request_list_peer_have_file(my_node,active_peers,data, dht_local, responsability_plage)
+    #request_files([['127.0.0.1',7002],['127.0.0.1',7001]],"d82976927a30836e3d26fbdc83289539dc65229522676d071b3894e8478af059841e402823a16a394fe1c420483932a9b78ce18dcebe2a582c7fcb7f3faf33a2",my_node)
+
+
+    return jsonify({"status": "success", "message": "Téléchargement initié"}), 200
+
 
 
 if __name__ == "__main__":
