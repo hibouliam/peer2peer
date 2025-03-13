@@ -1,15 +1,16 @@
 from flask import Flask, request,jsonify
 from flask_cors import CORS
-import threading,sys,random,socket
+import threading,sys,random,socket,time
 from recup_ip import generate_key
 import msgpack
+import os
 from dht import assign_dht, request_dht,handle_dht, send_dht_local,create_add_file_message, create_looking_file_message, request_list_peer_have_file, send_replica_message,create_delete_file_message
 from file_share import request_files,handle_files
 from file_emplacement import add_file_to_network
 # from sans_global import bootstrap_interaction,attempt_peer_connections,start_peer_server,handle_communication_between_peer,add_neighbor_peer,applatir_données
 from variable import create_variable_json, update_or_add_variable, load_variable_json
 from conn_bootstrap import bootstrap_interaction,attempt_peer_connections,start_peer_server,handle_communication_between_peer,add_neighbor_peer,applatir_données
-   
+from security import verify_pow, request_pow_verification  
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
@@ -100,12 +101,19 @@ def get_peers():
         active_peers = load_variable_json(peer_port, "active_peers" )
         my_node = load_variable_json(peer_port, "my_node" )
 
-        
+
         print("Plage de responsabilité :", load_variable_json(peer_port,"responsability_plage"))
         print("Liste des pairs actifs :", active_peers)
         print("dht local :",dht_local)
 
-        return jsonify({"Status": "success","active_peers": active_peers,"responsability_plage":responsability_plage,"dht_local":dht_local,"my_node":my_node}), 200
+        result = []
+        for peer in active_peers:
+            result.append({"my_node": my_node,
+                           "active_peers": peer,
+                           "dht_local": dht_local})
+            
+
+        return jsonify({"Status": "success","data": result}), 200
 
 
     else:
@@ -124,6 +132,59 @@ def get_peers():
 #     file_path = data.get("file_path")
 #     # Ajouter ton code ici pour gérer l'ajout de fichiers
 #     return jsonify({"status": "success", "message": "File added successfully"}), 200
+
+UPLOAD_FOLDER = "uploads"  # Dossier où sauvegarder temporairement les fichiers
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)  # Crée le dossier s'il n'existe pas
+
+@app.route("/upload", methods = ["POST"])
+def upload_file():
+
+    print("[DEBUG] Requête reçue") 
+
+    if "file" not in request.files:
+        print("[DEBUG] Aucun fichier reçu")
+        return jsonify({"status": "error", "message": "Aucun fichier fourni"}), 400
+
+    file = request.files["file"]  # On récupère le fichier correctement
+    peer_port = request.form.get("peerPort")  # On récupère peerPort
+
+    print(f"[DEBUG] peer_port = {peer_port}, fichier = {file.filename}")
+
+    file_path = os.path.join(UPLOAD_FOLDER, file.filename)
+    file.save(file_path)  # ⬅️ Correction : on enregistre le fichier
+
+    
+    # data = request.get_json()
+    # print("[DEBUG] Requête reçue:", data)  # Vérifier ce qui est reçu
+
+    # peer_port = int(data.get("peerPort")) if data else None
+    # print("[DEBUG] peer_port =", peer_port)
+
+    dht_local = load_variable_json(peer_port, "dht" )
+    responsability_plage = load_variable_json(peer_port, "responsability_plage" )
+    active_peers = load_variable_json(peer_port, "active_peers" )
+    my_node = load_variable_json(peer_port, "my_node" )
+    print(my_node)
+    # fichier = "IMG_20170915_173150.jpg"
+    fichier_coder,key = create_add_file_message(file_path, my_node)
+
+    add_file_to_network(file_path,f'.storage{peer_port}')
+    send_replica_message(my_node,active_peers,key)
+    data= {"action":"add_file", "data": fichier_coder}
+    dht_local=handle_dht(my_node,active_peers,data, dht_local, responsability_plage)
+    update_or_add_variable(peer_port, "dht", dht_local)
+
+    # if request_pow_verification(active_peers, key, my_node, 2):
+
+    #     print("[DEBUG] PASS request_pow_verify")
+    #     add_file_to_network(file,f'.storage{peer_port}')
+    #     send_replica_message(my_node,active_peers,key)
+    #     data= {"action":"add_file", "data": fichier_coder}
+    #     dht_local=handle_dht(my_node,active_peers,data, dht_local, responsability_plage)
+    #     update_or_add_variable(peer_port, "dht", dht_local)
+
+    return jsonify({"status": "success", "message": f"Fichier {file.filename} reçu avec peerPort {peer_port}"}), 200
+
 
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=5000)  

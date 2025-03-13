@@ -1,0 +1,22 @@
+{
+    "port": 505,
+    "dht": {
+        "b2dad1d576da9fd5a22798febceda2ce4d4a3e3661ad6379d2e26625bae0a7697ba88baf6c3c564c01f1d27e97940b991739c326ef13f2cd41c9bc024ffbae33": [
+            [
+                "5cc849e918bd8716d365a15c7f59fc8c4bbad20aa610f5ef44d54e27ef4d0de56b5c8be8263af51f6a32a1f2d692f245fd61262bf6752e1843bec22b36368122",
+                "127.0.0.1",
+                505
+            ]
+        ]
+    },
+    "responsability_plage": [
+        0,
+        null
+    ],
+    "my_node": [
+        "5cc849e918bd8716d365a15c7f59fc8c4bbad20aa610f5ef44d54e27ef4d0de56b5c8be8263af51f6a32a1f2d692f245fd61262bf6752e1843bec22b36368122",
+        "127.0.0.1",
+        505
+    ],
+    "active_peers": []
+}

@@ -230,7 +230,8 @@ const Page = ({ip,peerPort,onLogout}) => {
     top: '50%',
     left: '50%',
     transform: 'translate(-50%, -50%)', // Centrage
-    width: '400px',
+    width: '1300px',
+    
     padding: '20px',
     backgroundColor: '#343a40',
     boxShadow: '0px 4px 6px rgba(0, 0, 0, 0.2)',
@@ -294,20 +295,8 @@ const Page = ({ip,peerPort,onLogout}) => {
   );
 
 
-  function createData(
-    name: string,
-    calories: number,
-    fat: number,
-    carbs: number,
-    protein: number,
-  ) {
-    return { name, calories, fat, carbs, protein };
-  }
-  
-  const rows = [
-    createData('Frozen yoghurt', 159, 6.0, 24, 4.0),
-    createData('Ice cream sandwich', 237, 9.0, 37, 4.3),
-  ];
+
+  const[rows,setRows] = useState([])
   
 
   // // eslint-disable-next-line
@@ -321,26 +310,19 @@ const Page = ({ip,peerPort,onLogout}) => {
             <TableCell>Nodes</TableCell>
             <TableCell >Paires actifs</TableCell>
             <TableCell >DHT Local</TableCell>
-            <TableCell >My _node</TableCell>
+            
             
           </TableRow>
         </TableHead>
         <TableBody>
-          {rows.map((row) => (
-            <TableRow
-              key={row.name}
-              sx={{ '&:last-child td, &:last-child th': { border: 0 } }}
-            >
-              <TableCell component="th" scope="row">
-                {row.name}
-              </TableCell>
-              <TableCell align="right">{row.calories}</TableCell>
-              <TableCell align="right">{row.fat}</TableCell>
-              <TableCell align="right">{row.carbs}</TableCell>
-            
-            </TableRow>
-          ))}
-        </TableBody>
+                  {rows.map((row, index) => (
+                    <TableRow key={index}>
+                      <TableCell>{row.my_node}</TableCell>
+                      <TableCell>{JSON.stringify(row.active_peers)}</TableCell>
+                      <TableCell>{JSON.stringify(row.dht_local)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
       </Table>
     </TableContainer>
 
@@ -363,47 +345,83 @@ const Page = ({ip,peerPort,onLogout}) => {
       const response = await axios.post('http://localhost:5000/info', {peerPort: peerPort});
     
       console.log(response.data);
-      // setOpen(true);
+      if (response.data.Status === "success") {
+        setRows(response.data.data); // Stocker les données dans le state
+      } else {
+        console.error("Erreur API :", response.data.message);
+      }
       setIsInfoNetworkPopupOpen(!isNetworkInfoPopUpOpen)
       
     } catch (err) {
-      console.error(err);
+      console.error("Erreur API :", err);
     }
     
   };
 
- 
-
-  
+   
   // Upload
   // eslint-disable-next-line
     const [file,setFile] = useState(null);
+    const [message, setMessage] = useState("");
+    // const [selectedFile, setSelectedFile] = useState(null);
 
-    const handleFileChange = async (e) => {
-      const selectedFile = e.target.files[0];
-      if (!selectedFile) return;
+    const handleFileChangee = (event) => {
+      setFile(event.target.files[0]);
+      setMessage(""); 
+    };
+
+    const handleUpload = async () => {
+      if (!file) {
+        setMessage("Veuillez sélectionner un fichier !");
+        return;
+      }
   
-      setFile(selectedFile);
-  
-      const formData = new FormData();
-      formData.append("file", selectedFile);
+      setMessage("envoie en cours");
   
       try {
-        const response = await fetch("http://localhost:5000/upload", {
-          method: "POST",
-          body: formData,
-        });
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("peerPort", peerPort); // Ajoute peerPort
   
-        if (response.ok) {
-          alert("Fichier uploadé avec succès !");
-        } else {
-          alert("Erreur lors de l'upload.");
-        }
-      } catch (error) {
-        console.error("Erreur:", error);
-        alert("Impossible de se connecter au serveur.");
+        const response = await axios.post("http://localhost:5000/upload", formData, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
+        console.log(response.data);
+  
+        setMessage("Upload réussi !");
+      } catch (err) {
+        console.error("Erreur lors de l'upload :", err);
+        setMessage("Erreur lors de l'upload !");
       }
+  
+      // setLoading(false);
     };
+
+    // const handleFileChange = async (e) => {
+    //   const selectedFile = e.target.files[0];
+    //   if (!selectedFile) return;
+  
+    //   setFile(selectedFile);
+  
+    //   const formData = new FormData();
+    //   formData.append("file", selectedFile);
+  
+    //   try {
+    //     const response = await fetch("http://localhost:5000/upload", {
+    //       method: "POST",
+    //       body: formData,
+    //     });
+  
+    //     if (response.ok) {
+    //       alert("Fichier uploadé avec succès !");
+    //     } else {
+    //       alert("Erreur lors de l'upload.");
+    //     }
+    //   } catch (error) {
+    //     console.error("Erreur:", error);
+    //     alert("Impossible de se connecter au serveur.");
+    //   }
+    // };
 
     // Download
   
@@ -474,14 +492,31 @@ const Page = ({ip,peerPort,onLogout}) => {
               <CustomTabPanel value={value} index={0}>
               <h1 style = {contentStyle2} className='contentStyle2'>Charger des Fichiers</h1>
               <p style ={contentStyle} className='contentStyle'>
-              <div>
-              <input type="file" onChange={handleFileChange} style={{ display: "none" }} id="file-input"/>
+              {/* <div>
+              <input type="file" onChange={handleFileChangee} style={{ display: "none" }} id="file-input"/>
                <label htmlFor="file-input">
-              <Button component="span" size="large" variant="contained" startIcon={<CloudUploadIcon />}>
+              <Button component="span" size="large" variant="contained" onClick={handleUpload} startIcon={<CloudUploadIcon />}>
               Upload
               </Button>
               </label>
-              </div> </p> </CustomTabPanel>
+              </div>  */}
+              <div>
+                <input type="file" onChange={handleFileChangee} style={{ display: "none" }} id="file-input" />
+                <label htmlFor="file-input">
+                  <Button component="span" size="large" variant="contained" startIcon={<CloudUploadIcon />}>
+                    Choisir un fichier
+                  </Button>
+                </label>
+                {file && <p style={contentStyle2}>Fichier sélectionné : {file.name}</p>}
+
+                <Button variant="contained" color="primary" onClick={handleUpload}>
+                  Uploader
+                </Button>
+                {message && <p style = {contentStyle2}>{message}</p>}
+             </div>
+
+              </p> 
+              </CustomTabPanel>
 
               <CustomTabPanel value={value} index={1}>
                 <h1 style = {contentStyle2} >Télécharger des Fichiers</h1>

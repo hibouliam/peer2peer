@@ -341,21 +341,21 @@ def applatir_données(data :list)-> list :
 #             my_node = load_variable_json(PEER_PORT, "my_node" )
 #             bootstrap_interaction("LEAVE", active_peers)  # Tester l'action LEAVE
 #             break  # Sortie de la boucle après avoir quitté le réseau
-#         elif action == 'a' :
-#             dht_local = load_variable_json(PEER_PORT, "dht" )
-#             responsability_plage = load_variable_json(PEER_PORT, "responsability_plage" )
-#             active_peers = load_variable_json(PEER_PORT, "active_peers" )
-#             my_node = load_variable_json(PEER_PORT, "my_node" )
-#             print(my_node)
-#             fichier = "20221129_145533.mp4"
-#             fichier_coder,key = create_add_file_message(fichier, my_node)
-#             if request_pow_verification(active_peers, key, my_node, 2):
-#                 add_file_to_network(fichier,f'.storage{PEER_PORT}')
-#                 time.sleep(1)
-#                 send_replica_message(my_node,active_peers,key)
-#                 data= {"action":"add_file", "data": fichier_coder}
-#                 dht_local=handle_dht(my_node,active_peers,data, dht_local, responsability_plage)
-#                 update_or_add_variable(PEER_PORT, "dht", dht_local)
+        # elif action == 'a' :
+        #     dht_local = load_variable_json(PEER_PORT, "dht" )
+        #     responsability_plage = load_variable_json(PEER_PORT, "responsability_plage" )
+        #     active_peers = load_variable_json(PEER_PORT, "active_peers" )
+        #     my_node = load_variable_json(PEER_PORT, "my_node" )
+        #     print(my_node)
+        #     fichier = "20221129_145533.mp4"
+        #     fichier_coder,key = create_add_file_message(fichier, my_node)
+        #     if request_pow_verification(active_peers, key, my_node, 2):
+        #         add_file_to_network(fichier,f'.storage{PEER_PORT}')
+        #         time.sleep(1)
+        #         send_replica_message(my_node,active_peers,key)
+        #         data= {"action":"add_file", "data": fichier_coder}
+        #         dht_local=handle_dht(my_node,active_peers,data, dht_local, responsability_plage)
+        #         update_or_add_variable(PEER_PORT, "dht", dht_local)
 
 #             else  :
 #                 print("Vous n'avez pas la puissance de calcul nécessaire")
