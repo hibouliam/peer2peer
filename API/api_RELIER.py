@@ -221,6 +221,21 @@ def donwload_file():
 
     return jsonify({"status": "success", "message": "Téléchargement initié"}), 200
 
+@app.route("/files",methods = ["GET"])
+def get_file_content():
+    file_path = "file_keys.txt"  # Chemin du fichier
+
+    try:
+        with open(file_path, "r", encoding="utf-8") as file:
+            content = file.read()
+        
+        return jsonify({"status": "success", "content": content}), 200
+
+    except FileNotFoundError:
+        return jsonify({"status": "error", "message": "Fichier introuvable"}), 404
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 
 
 if __name__ == "__main__":

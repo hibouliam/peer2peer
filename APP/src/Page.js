@@ -15,7 +15,7 @@ import TextField from '@mui/material/TextField';
 import { createTheme, ThemeProvider } from "@mui/material/styles";
 import "./Page.css"
 import axios from "axios";
-
+import CircularProgress from "@mui/material/CircularProgress";
 import Table from '@mui/material/Table';
 import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
@@ -260,15 +260,20 @@ const Page = ({ip,peerPort,onLogout}) => {
 
   const fetchFiles = async () => {
     try {
-      const response = await axios.get("http://localhost:5000/api/files");
-      setFiles(response.data.files); // Met à jour l'état avec la liste des fichiers
+      const response = await fetch("http://localhost:5000/files"); // Adapte l'URL selon ton setup
+      const data = await response.json();
+  
+      if (data.status === "success") {
+        // Convertir le contenu du fichier en une liste en supposant qu'il y ait une ligne par fichier
+        setFiles(data.content.split("\n").filter(file => file.trim() !== ""));
+      } else {
+        setError(data.message);
+      }
     } catch (err) {
       setError("Erreur lors de la récupération des fichiers.");
-      console.error(err);
-    } finally {
-      setLoading(false); // Désactive l'indicateur de chargement
     }
   };
+  
 
   const styleFindFile = {
     left: '20%',
@@ -280,16 +285,25 @@ const Page = ({ip,peerPort,onLogout}) => {
       <ThemeProvider theme={theme} ><TextField  id="standard-basic" label="Search Field" variant="standard"/></ThemeProvider> 
       <SearchRoundedIcon fontSize="large"></SearchRoundedIcon>
       <Button style={styleFindFile} variant ='contained' size='small' padding='10px' onClick={fetchFiles}>Find Files</Button>
-      <div>
-      <h2>Liste des fichiers</h2>
-      {error && <p style={{ color: "red" }}>{error}</p>}
-      <ul>
-        {files.length > 0 ? (
-          files.map((file, index) => <li key={index}>{file}</li>)
-        ) : (<p>Aucun fichier disponible.</p>)
-        }
-      </ul>
-      </div>
+      
+      <div style={{ maxHeight: "200px", overflowY: "auto", border: "1px solid #ccc", padding: "10px", borderRadius: "5px" }}>
+  <ul style={{ listStyleType: "none", padding: 0 }}>
+    {files.length > 0 ? (
+      files.map((file, index) => {
+        const [fileName, fileKey] = file.split(" : "); // Séparation du nom et de la clé
+        return (
+          <li key={index} style={{ marginBottom: "10px", wordBreak: "break-word",color: "d9d9d9" }}>
+            <strong>{fileName}</strong>: <span style={{ fontSize: "0.85em", color: "#d9d9d9" }}>{fileKey}</span>
+          </li>
+        );
+      })
+    ) : (
+      <p>Aucun fichier disponible.</p>
+    )}
+  </ul>
+</div>
+
+
       <Button variant ='contained' size='small' onClick={togglePopupFileInNetwork}>Close</Button>
         </>
   );
@@ -370,32 +384,91 @@ const Page = ({ip,peerPort,onLogout}) => {
       setMessage(""); 
     };
 
+    
+    // const handleUpload = async () => {
+    //   if (!file) {
+    //     setMessage("Veuillez sélectionner un fichier !");
+    //     return;
+    //   }
+  
+    //   setMessage("envoie en cours");
+  
+    //   try {
+    //     const formData = new FormData();
+    //     formData.append("file", file);
+    //     formData.append("peerPort", peerPort); // Ajoute peerPort
+  
+    //     const response = await axios.post("http://localhost:5000/upload", formData, {
+    //       headers: { "Content-Type": "multipart/form-data" },
+    //     });
+    //     console.log(response.data);
+  
+    //     setMessage("Upload réussi !");
+    //   } catch (err) {
+    //     console.error("Erreur lors de l'upload :", err);
+    //     setMessage("Erreur lors de l'upload !");
+    //   }
+  
+    //   // setLoading(false);
+    // };
+
+    // const handleUpload = async () => {
+    //   if (!file) {
+    //     setMessage("Veuillez sélectionner un fichier !");
+    //     return;
+    //   }
+    
+    //   setLoading(true);
+    //   setMessage("Envoi en cours...");
+    
+    //   try {
+    //     const formData = new FormData();
+    //     formData.append("file", file);
+    //     formData.append("peerPort", peerPort);
+    
+    //     const response = await axios.post("http://localhost:5000/upload", formData, {
+    //       headers: { "Content-Type": "multipart/form-data" },
+    //     });
+    //     console.log(response.data);
+    
+    //     setMessage("Upload réussi !");
+    //   } catch (err) {
+    //     console.error("Erreur lors de l'upload :", err);
+    //     setMessage("Erreur lors de l'upload !");
+    //   }
+    
+    //   setLoading(false);
+    // };
+
     const handleUpload = async () => {
       if (!file) {
         setMessage("Veuillez sélectionner un fichier !");
         return;
       }
-  
-      setMessage("envoie en cours");
-  
+    
+      setLoading(true);
+      setMessage("Envoi en cours...");
+    
       try {
         const formData = new FormData();
         formData.append("file", file);
-        formData.append("peerPort", peerPort); // Ajoute peerPort
-  
+        formData.append("peerPort", peerPort);
+    
         const response = await axios.post("http://localhost:5000/upload", formData, {
           headers: { "Content-Type": "multipart/form-data" },
         });
+    
         console.log(response.data);
-  
         setMessage("Upload réussi !");
       } catch (err) {
         console.error("Erreur lors de l'upload :", err);
         setMessage("Erreur lors de l'upload !");
       }
-  
-      // setLoading(false);
+    
+      setLoading(false);
     };
+    
+    
 
     // const handleFileChange = async (e) => {
     //   const selectedFile = e.target.files[0];
@@ -502,7 +575,8 @@ const Page = ({ip,peerPort,onLogout}) => {
               </Button>
               </label>
               </div>  */}
-              <div>
+
+              {/* <div>
                 <input type="file" onChange={handleFileChangee} style={{ display: "none" }} id="file-input" />
                 <label htmlFor="file-input">
                   <Button component="span" size="large" variant="contained" startIcon={<CloudUploadIcon />}>
@@ -515,7 +589,26 @@ const Page = ({ip,peerPort,onLogout}) => {
                   Uploader
                 </Button>
                 {message && <p style = {contentStyle2}>{message}</p>}
-             </div>
+             </div> */}
+
+            <div>
+              <input type="file" onChange={handleFileChangee} style={{ display: "none" }} id="file-input" />
+              <label htmlFor="file-input">
+                <Button component="span" size="large" variant="contained" startIcon={<CloudUploadIcon />}>
+                  Choisir un fichier
+                </Button>
+              </label>
+
+              {file && <p style={contentStyle2}>Fichier sélectionné : {file.name}</p>}
+
+              <Button variant="contained" color="primary" onClick={handleUpload} disabled={loading}>
+                {loading ? "Envoi..." : "Uploader"}
+              </Button>
+
+              {loading && <CircularProgress style={{ marginTop: "10px" }} />}
+
+              {message && <p style={contentStyle2}>{message}</p>}
+            </div>
 
               </p> 
               </CustomTabPanel>
