@@ -7,7 +7,6 @@ CORS(app)
 active_peers = []  # Liste des pairs actifs
 files_storage = {} 
 list_file_storage = {}
-passwords = {}
 
 @app.route('/join', methods=['POST'])
 def join_network():
@@ -66,10 +65,11 @@ def leave_network():
         if not peers:
             file_key = files_storage.get(file_name)
             del files_storage[file_name]
-            del passwords[file_key]
+           
             for value, key in list(list_file_storage.items()):
-                if key == file_key:  # Si la valeur correspond à `file_name`
-                    del list_file_storage[key]  # Supprimer la clé (le file_name)
+                print(file_name,value,key, file_key)
+                if key == file_name:  # Si la valeur correspond à `file_name`
+                    del list_file_storage[value]  # Supprimer la clé (le file_name)
                     print(f"{file_name} a été supprimé de list_files_storage")
                     break
 
@@ -105,13 +105,6 @@ def get_list_dht():
     """
     return jsonify({"list_files_storage": list_file_storage}), 200
 
-@app.route('/list_passwords', methods=['GET'])
-def get_list_passwords():
-    """
-    Retourne la liste de dht.
-    curl -X GET http://127.0.0.1:5002/dht  
-    """
-    return jsonify({"list_passwords": passwords}), 200
 
 @app.route('/info', methods=['GET'])
 def info():
@@ -204,8 +197,6 @@ def store_file():
     file_name = data.get("file_name")
 
     if file_key not in list_file_storage.values():
-        if data.get("password") :
-            passwords[file_key] = data.get("password")
         original_name = file_name
         count = 1
         
@@ -218,7 +209,6 @@ def store_file():
             count += 1
         
         # Ajouter le fichier avec un nom unique
-        
         list_file_storage[file_name] = file_key
     
     if len(active_peers) <= 3:

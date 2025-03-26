@@ -14,7 +14,7 @@ from io import BytesIO
 logging.basicConfig(level=logging.DEBUG)
 
 UPLOAD_FOLDER = "uploads"
-BOOTSTRAP_URL = "http://192.168.80.32:5002"
+BOOTSTRAP_URL = "http://192.168.80.3:5002"
 
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)

@@ -8,8 +8,8 @@ import time
 import socket
 app = Flask(__name__)
 CORS(app)
-BOOTSTRAP_URL = "http://192.168.80.32:5002"
-API_URL ="https://3c8e-92-137-168-180.ngrok-free.app"
+BOOTSTRAP_URL = "http://192.168.80.3:5002"
+API_URL ="https://6c1a-78-243-97-162.ngrok-free.app"
 # Dossier de stockage des fichiers
 UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -41,6 +41,7 @@ def notify_join():
 
 # Fonction pour envoyer une requête POST lors de l'arrêt
 def notify_leave():
+    
     try:
         for file_name in os.listdir(app.config["UPLOAD_FOLDER"]):
             time.sleep(2)
@@ -65,6 +66,7 @@ def notify_leave():
                     print(f"Fichier {file_name} supprimé avec succès.")
                 except requests.exceptions.RequestException as e:
                     print(f"Erreur lors de l'envoi de la requête leave: {e}")
+
         try :
             time.sleep(2)
             data = {"ip": IP, "port": "5000"}
@@ -73,6 +75,7 @@ def notify_leave():
             time.sleep(2)
         except requests.exceptions.RequestException as e:
             print(f"Erreur lors de l'envoi de la requête leave: {e}")
+        
         
     except requests.exceptions.RequestException as e:
         print(f"Erreur lors de l'envoi de la requête leave: {e}")
